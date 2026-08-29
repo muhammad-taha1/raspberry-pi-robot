@@ -1,0 +1,14 @@
+# Authoritative GPIO pin map for raspberry-pi-robot.
+#
+# Every physical device's pin lives here, nowhere else. robotd/config.py
+# refuses to start if two entries below claim the same pin.
+
+[pins]
+led = 24
+
+# L298N motor driver (moved off GPIO 17 to free it for the status LED —
+# the original scripts had both on 17).
+motor_in1 = 17
+motor_in2 = 27
+motor_in3 = 22
+motor_in4 = 23

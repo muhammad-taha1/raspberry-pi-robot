@@ -1,8 +1,14 @@
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from gpiozero import LED
 
-LED_PIN = 17
+from robotd.config import load
 
-led = LED(LED_PIN)
+cfg = load()
+led = LED(cfg.pin("led"))
 
 print("LED test shell")
 print("Commands: on, off, status, quit")

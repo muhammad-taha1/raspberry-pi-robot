@@ -1,0 +1,15 @@
+[Unit]
+Description=raspberry-pi-robot daemon
+After=network.target
+
+[Service]
+Type=simple
+# Adjust WorkingDirectory/User to match where the repo is cloned on the Pi.
+WorkingDirectory=/home/pi/raspberry-pi-robot
+ExecStart=/home/pi/raspberry-pi-robot/.venv/bin/python -m robotd
+Restart=on-failure
+RestartSec=2
+User=pi
+
+[Install]
+WantedBy=multi-user.target

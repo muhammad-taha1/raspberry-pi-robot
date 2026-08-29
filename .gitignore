@@ -1,3 +1,7 @@
 .venv/
 __pycache__/
 *.pyc
+
+# Local-only project docs — never committed, never pulled to the Pi
+articles/
+.claude/

@@ -1,12 +1,21 @@
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from gpiozero import OutputDevice
 from time import sleep
 
-# L298N inputs
-IN1 = OutputDevice(17, initial_value=False)
-IN2 = OutputDevice(27, initial_value=False)
+from robotd.config import load
 
-IN3 = OutputDevice(22, initial_value=False)
-IN4 = OutputDevice(23, initial_value=False)
+cfg = load()
+
+# L298N inputs
+IN1 = OutputDevice(cfg.pin("motor_in1"), initial_value=False)
+IN2 = OutputDevice(cfg.pin("motor_in2"), initial_value=False)
+
+IN3 = OutputDevice(cfg.pin("motor_in3"), initial_value=False)
+IN4 = OutputDevice(cfg.pin("motor_in4"), initial_value=False)
 
 
 def stop():
