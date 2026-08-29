@@ -30,8 +30,7 @@ deploy/robotd.service
 ## Pin map
 
 The **only** authoritative source is `config/robot.toml`. Never hardcode a GPIO number
-anywhere else — read it via `RobotConfig.pin(name)`. `robotd/config.py` refuses to start if
-two entries claim the same pin.
+anywhere else — read it via `RobotConfig.pin(name)`.
 
 | Name | GPIO | Device |
 |---|---|---|

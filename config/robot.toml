@@ -1,7 +1,6 @@
 # Authoritative GPIO pin map for raspberry-pi-robot.
 #
-# Every physical device's pin lives here, nowhere else. robotd/config.py
-# refuses to start if two entries below claim the same pin.
+# Every physical device's pin lives here, nowhere else.
 
 [pins]
 led = 24
