@@ -42,6 +42,9 @@ anywhere else — read it via `RobotConfig.pin(name)`.
 
 (I²C and SPI addresses will be added here as those devices arrive, from M8 onward.)
 
+Board capability reference (full J8 header, ports, SoC): `docs/pinout.md`
+(local-only, see below) or run `pinout` directly on the Pi.
+
 ## Recipe: adding a device
 
 1. Add a `Protocol` + one real implementation in `robotd/hal/` (or `robotd/models/` for an
