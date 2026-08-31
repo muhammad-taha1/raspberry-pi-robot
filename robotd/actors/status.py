@@ -15,6 +15,19 @@ from robotd.hal.leds import Led
 from robotd.messages import SetLed
 
 
+def command(action: str) -> SetLed | None:
+    """Translate a Command.action string into the message StatusActor understands.
+
+    Lives here, next to the actor that understands SetLed, rather than inside
+    CommandActor — so CommandActor never grows per-device knowledge.
+    """
+    if action == "on":
+        return SetLed(True)
+    if action == "off":
+        return SetLed(False)
+    return None
+
+
 class StatusActor(pykka.ThreadingActor):
     def __init__(self, led: Led) -> None:
         super().__init__()

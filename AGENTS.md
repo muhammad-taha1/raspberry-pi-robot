@@ -10,20 +10,23 @@ communicate by message, own one device each, and are never imported by each othe
 "Recipe: adding a device" below before writing any new hardware code.
 
 Current status: **M0 done** — package skeleton, config loader, one LED. **M1 done** — Pykka
-actors, `StatusActor` owns the LED. Motors and the dead-man's switch move to the end of the
-plan (M14) — see `docs/plan.md`.
+actors, `StatusActor` owns the LED, and a `POST /command` HTTP endpoint drives it via
+`CommandActor`. Motors and the dead-man's switch move to the end of the plan (M14) — see
+`docs/plan.md`.
 
 ## Repo map
 
 ```
 robotd/
-  __main__.py     entrypoint; python -m robotd [--check]
+  __main__.py     entrypoint; python -m robotd
   config.py       loads config/robot.toml; RobotConfig.pin(name) -> gpio number
   messages.py     the message contract — frozen dataclasses actors send each other
+  web.py          HTTP boundary only (transport) — POST /command -> CommandActor.ask()
   hal/            hardware seam — one Protocol + one real implementation per device
     leds.py       Led protocol + GpioLed
   actors/
     status.py     StatusActor — owns the LED, handles SetLed (on/off only)
+    command.py    CommandActor — routes external Command requests to device actors
     supervisor.py Supervisor — starts/stops the actor tree
 scripts/          hardware bring-up bench — plain, blocking, run over SSH
 tests/            pytest — logic only, no hardware required
@@ -59,10 +62,25 @@ Board capability reference (full J8 header, ports, SoC): `docs/pinout.md`
 2. Add its pin(s)/address to `config/robot.toml`.
 3. If the brain should be able to use it, register it in `tools.py` — `add_action` or
    `add_sensor`. This is the only place `BrainActor` learns about a device.
-4. Add a bring-up script in `scripts/` that talks to the device directly (not through the
+4. If it should be reachable over `POST /command`, add a `command(action) -> Message | None`
+   translator next to the actor's own module (see `robotd/actors/status.py`) and one line
+   in `Supervisor`'s route table. `CommandActor` never learns a device's message types
+   directly.
+5. Add a bring-up script in `scripts/` that talks to the device directly (not through the
    HAL) — this is how you debug the wiring by hand.
 
 No actor should need to change just because a device was added.
+
+## HTTP command endpoint
+
+```
+curl -X POST -d '{"device":"led","action":"on"}'  http://<pi-host>:8080/command
+curl -X POST -d '{"device":"led","action":"off"}' http://<pi-host>:8080/command
+```
+
+`robotd/web.py` is transport only — it decodes JSON and calls `CommandActor.ask()`; it
+knows nothing about device names or message types. Binds `0.0.0.0:8080` with no auth —
+fine on a home LAN, worth remembering once anything with motors is exposed this way (M14).
 
 ## Invariants
 
@@ -98,5 +116,7 @@ All tests run without a Pi, a GPIO backend, or any physical device attached.
 Pulls latest, restarts the `robotd` service, and tails its log (`git pull`,
 `sudo systemctl restart robotd`, `journalctl -fu robotd`).
 
-`python -m robotd --check` exercises every registered real device once and prints a
-pass/fail line per device — run it after any wiring change, before trusting the service.
+There's no automated device check — the pin/device set changes too often for a
+hand-maintained one to be worth it. Verify a wiring change by watching `python -m robotd`
+start cleanly and exercising the device over `POST /command` (or watching its actor's
+behaviour directly once it has one).

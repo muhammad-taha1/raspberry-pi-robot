@@ -4,57 +4,29 @@ from time import sleep
 
 from robotd.actors.supervisor import Supervisor
 from robotd.config import DEFAULT_CONFIG_PATH, load
-from robotd.hal.leds import GpioLed
-from robotd.messages import SetLed
-
-
-def check(config_path: str) -> int:
-    """Exercise every registered real device once and report pass/fail."""
-    cfg = load(config_path)
-
-    print("led ... ", end="", flush=True)
-    led = GpioLed(cfg.pin("led"))
-    try:
-        led.on()
-        sleep(0.3)
-        led.off()
-        sleep(0.3)
-        led.on()
-        sleep(0.3)
-        led.off()
-        print("ok")
-    finally:
-        led.close()
-
-    return 0
+from robotd.web import COMMAND_PORT, serve
 
 
 def run(config_path: str) -> int:
-    """Start the actor tree, light the status LED, and run until interrupted."""
+    """Start the actor tree and the command endpoint; run until interrupted."""
     cfg = load(config_path)
     with Supervisor(cfg) as robot:
-        robot.status.tell(SetLed(True))
-        print("robotd: running (Ctrl-C to stop)")
+        server = serve(robot.commands)
+        print(f"robotd: running, POST /command on :{COMMAND_PORT} (Ctrl-C to stop)")
         try:
             while True:
                 sleep(1)
         except KeyboardInterrupt:
             pass
+        finally:
+            server.shutdown()
     return 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="robotd")
-    parser.add_argument(
-        "--check",
-        action="store_true",
-        help="exercise every registered device once and exit",
-    )
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH))
     args = parser.parse_args()
-
-    if args.check:
-        return check(args.config)
 
     return run(args.config)
 
