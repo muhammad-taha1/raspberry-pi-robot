@@ -9,7 +9,9 @@ A Raspberry Pi 5 desk companion robot, built one milestone at a time. Actors (Py
 communicate by message, own one device each, and are never imported by each other. See
 "Recipe: adding a device" below before writing any new hardware code.
 
-Current status: **M0** — package skeleton, config loader, one LED. No actors yet.
+Current status: **M0 done** — package skeleton, config loader, one LED. **M1 done** — Pykka
+actors, `StatusActor` owns the LED. Motors and the dead-man's switch move to the end of the
+plan (M14) — see `docs/plan.md`.
 
 ## Repo map
 
@@ -17,10 +19,15 @@ Current status: **M0** — package skeleton, config loader, one LED. No actors y
 robotd/
   __main__.py     entrypoint; python -m robotd [--check]
   config.py       loads config/robot.toml; RobotConfig.pin(name) -> gpio number
+  messages.py     the message contract — frozen dataclasses actors send each other
   hal/            hardware seam — one Protocol + one real implementation per device
     leds.py       Led protocol + GpioLed
+  actors/
+    status.py     StatusActor — owns the LED, handles SetLed/Blink
+    supervisor.py Supervisor — starts/stops the actor tree
 scripts/          hardware bring-up bench — plain, blocking, run over SSH
 tests/            pytest — logic only, no hardware required
+  doubles.py      test doubles implementing hal/ protocols — never in robotd/
 config/robot.toml the authoritative pin map
 deploy/robotd.service
 ```
@@ -59,9 +66,13 @@ No actor should need to change just because a device was added.
 
 ## Invariants
 
-- Motors stop on exit, on exception, and on command timeout (dead-man's switch, from M1).
+- A device is turned off and closed when its actor stops, on clean stop and on failure
+  alike (`StatusActor.on_stop`/`on_failure`, from M1). Motors get the same treatment plus a
+  dead-man's switch when they arrive in M14.
 - No actor blocks its mailbox — slow work (LLM calls, TTS, frame capture) belongs to the
-  actor whose only job is that thing.
+  actor whose only job is that thing. Timed/repeating behaviour (blinking, the future
+  dead-man's switch) is a self-rearming `threading.Timer` that `tell()`s the actor a private
+  message, never a `sleep()` inside `on_receive`.
 - `robotd/` ships real implementations only. Test doubles live in `tests/doubles.py`.
 - `scripts/` stays plain, blocking, and actor-free — it exists to test wiring, not logic.
 

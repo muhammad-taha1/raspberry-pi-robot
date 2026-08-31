@@ -2,8 +2,10 @@ import argparse
 import sys
 from time import sleep
 
+from robotd.actors.supervisor import Supervisor
 from robotd.config import DEFAULT_CONFIG_PATH, load
 from robotd.hal.leds import GpioLed
+from robotd.messages import Blink
 
 
 def check(config_path: str) -> int:
@@ -27,6 +29,20 @@ def check(config_path: str) -> int:
     return 0
 
 
+def run(config_path: str) -> int:
+    """Start the actor tree and blink the status LED until interrupted."""
+    cfg = load(config_path)
+    with Supervisor(cfg) as robot:
+        robot.status.tell(Blink(0.5))
+        print("robotd: running (Ctrl-C to stop)")
+        try:
+            while True:
+                sleep(1)
+        except KeyboardInterrupt:
+            pass
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="robotd")
     parser.add_argument(
@@ -40,8 +56,7 @@ def main() -> int:
     if args.check:
         return check(args.config)
 
-    print("robotd: no actors yet (M0) — try --check")
-    return 0
+    return run(args.config)
 
 
 if __name__ == "__main__":
