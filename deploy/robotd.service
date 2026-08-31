@@ -5,11 +5,11 @@ After=network.target
 [Service]
 Type=simple
 # Adjust WorkingDirectory/User to match where the repo is cloned on the Pi.
-WorkingDirectory=/home/pi/raspberry-pi-robot
-ExecStart=/home/pi/raspberry-pi-robot/.venv/bin/python -m robotd
+WorkingDirectory=/home/taha/raspberry-pi-robot
+ExecStart=/home/taha/raspberry-pi-robot/.venv/bin/python -m robotd
 Restart=on-failure
 RestartSec=2
-User=pi
+User=taha
 
 [Install]
 WantedBy=multi-user.target
