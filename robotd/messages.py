@@ -16,13 +16,6 @@ class RobotMessage:
 
 @dataclass(frozen=True)
 class SetLed(RobotMessage):
-    """Steady on/off. Cancels any in-progress blink."""
+    """Steady on/off."""
 
     on: bool
-
-
-@dataclass(frozen=True)
-class Blink(RobotMessage):
-    """Start blinking at the given interval, in seconds."""
-
-    interval: float

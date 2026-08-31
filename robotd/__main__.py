@@ -5,7 +5,7 @@ from time import sleep
 from robotd.actors.supervisor import Supervisor
 from robotd.config import DEFAULT_CONFIG_PATH, load
 from robotd.hal.leds import GpioLed
-from robotd.messages import Blink
+from robotd.messages import SetLed
 
 
 def check(config_path: str) -> int:
@@ -30,10 +30,10 @@ def check(config_path: str) -> int:
 
 
 def run(config_path: str) -> int:
-    """Start the actor tree and blink the status LED until interrupted."""
+    """Start the actor tree, light the status LED, and run until interrupted."""
     cfg = load(config_path)
     with Supervisor(cfg) as robot:
-        robot.status.tell(Blink(0.5))
+        robot.status.tell(SetLed(True))
         print("robotd: running (Ctrl-C to stop)")
         try:
             while True:

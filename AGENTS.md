@@ -23,7 +23,7 @@ robotd/
   hal/            hardware seam — one Protocol + one real implementation per device
     leds.py       Led protocol + GpioLed
   actors/
-    status.py     StatusActor — owns the LED, handles SetLed/Blink
+    status.py     StatusActor — owns the LED, handles SetLed (on/off only)
     supervisor.py Supervisor — starts/stops the actor tree
 scripts/          hardware bring-up bench — plain, blocking, run over SSH
 tests/            pytest — logic only, no hardware required
@@ -66,13 +66,19 @@ No actor should need to change just because a device was added.
 
 ## Invariants
 
+- A device-owning actor stays dumb: it exposes primitives (`SetLed(on/off)`, later
+  `Drive`/`Stop`), never a pattern or policy (blink timing, a drive sequence). Behaviour
+  that plays those primitives over time belongs in whichever actor actually needs it — e.g.
+  M8's attention/face logic will drive `StatusActor` via `SetLed`, `StatusActor` itself
+  never grows a `Blink` message. This is the actual point of decomposing into actors: logic
+  splits across collaborating pieces instead of accreting in the device owner.
 - A device is turned off and closed when its actor stops, on clean stop and on failure
   alike (`StatusActor.on_stop`/`on_failure`, from M1). Motors get the same treatment plus a
   dead-man's switch when they arrive in M14.
 - No actor blocks its mailbox — slow work (LLM calls, TTS, frame capture) belongs to the
-  actor whose only job is that thing. Timed/repeating behaviour (blinking, the future
-  dead-man's switch) is a self-rearming `threading.Timer` that `tell()`s the actor a private
-  message, never a `sleep()` inside `on_receive`.
+  actor whose only job is that thing. Timed/repeating behaviour (the future dead-man's
+  switch, or any future periodic pattern) is a self-rearming `threading.Timer` that
+  `tell()`s the actor a private message, never a `sleep()` inside `on_receive`.
 - `robotd/` ships real implementations only. Test doubles live in `tests/doubles.py`.
 - `scripts/` stays plain, blocking, and actor-free — it exists to test wiring, not logic.
 
