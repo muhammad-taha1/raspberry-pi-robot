@@ -72,10 +72,11 @@ All tests run without a Pi, a GPIO backend, or any physical device attached.
 ## Deploy loop (on the Pi)
 
 ```
-git pull
-sudo systemctl restart robotd
-journalctl -fu robotd
+./deploy/deploy.sh
 ```
+
+Pulls latest, restarts the `robotd` service, and tails its log (`git pull`,
+`sudo systemctl restart robotd`, `journalctl -fu robotd`).
 
 `python -m robotd --check` exercises every registered real device once and prints a
 pass/fail line per device — run it after any wiring change, before trusting the service.
