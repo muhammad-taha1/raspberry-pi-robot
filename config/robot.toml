@@ -11,3 +11,8 @@ motor_in1 = 17
 motor_in2 = 27
 motor_in3 = 22
 motor_in4 = 23
+
+[voice]
+# Installed manually on the Pi. Keep this model and its matching .onnx.json
+# sidecar out of Git (see .gitignore).
+model_path = "/home/taha/robot/voices/en_GB-alan-medium.onnx"

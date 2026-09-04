@@ -11,6 +11,9 @@ def test_loads_pins(tmp_path):
             [pins]
             led = 24
             motor_in1 = 17
+
+            [voice]
+            model_path = "/opt/robot/voices/alan.onnx"
             """
         )
     )
@@ -19,6 +22,7 @@ def test_loads_pins(tmp_path):
 
     assert cfg.pin("led") == 24
     assert cfg.pin("motor_in1") == 17
+    assert cfg.voice_model_path.name == "alan.onnx"
 
 
 def test_actual_repo_config_loads():

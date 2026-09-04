@@ -11,8 +11,9 @@ communicate by message, own one device each, and are never imported by each othe
 
 Current status: **M0 done** — package skeleton, config loader, one LED. **M1 done** — Pykka
 actors, `StatusActor` owns the LED, and a `POST /command` HTTP endpoint drives it via
-`CommandActor`. Motors and the dead-man's switch move to the end of the plan (M14) — see
-`docs/plan.md`.
+`CommandActor`. **M2 is implemented pending its USB-speaker Pi check** — `VoiceActor` streams
+Piper TTS to the system-default audio device. Motors and the dead-man's switch move to the end
+of the plan (M14) — see `docs/plan.md`.
 
 ## Repo map
 
@@ -24,10 +25,14 @@ robotd/
   web.py          HTTP boundary only (transport) — POST /command -> CommandActor.ask()
   hal/            hardware seam — one Protocol + one real implementation per device
     leds.py       Led protocol + GpioLed
+    audio.py      Speaker protocol + PyAudioSpeaker (system-default output)
   actors/
     status.py     StatusActor — owns the LED, handles SetLed (on/off only)
     command.py    CommandActor — routes external Command requests to device actors
+    voice.py      VoiceActor — streams Speak text through TTS and the speaker
     supervisor.py Supervisor — starts/stops the actor tree
+  models/
+    tts.py        TextToSpeech protocol + PiperTts
 scripts/          hardware bring-up bench — plain, blocking, run over SSH
 tests/            pytest — logic only, no hardware required
   doubles.py      test doubles implementing hal/ protocols — never in robotd/
@@ -106,6 +111,19 @@ fine on a home LAN, worth remembering once anything with motors is exposed this 
 pytest
 ```
 All tests run without a Pi, a GPIO backend, or any physical device attached.
+
+For M2 on Raspberry Pi OS, install PortAudio build prerequisites before refreshing the virtual
+environment after pulling the dependency change:
+
+```
+sudo apt install portaudio19-dev python3-dev
+.venv/bin/pip install -r requirements.txt
+```
+
+Install `en_GB-alan-medium.onnx` and its matching `.onnx.json` sidecar manually at the path in
+`config/robot.toml`. Run `python scripts/speaker_test.py` to confirm the system-default output
+is the USB speaker, then `python scripts/voice_test.py` to prove Piper streams through it before
+starting `python -m robotd`.
 
 ## Deploy loop (on the Pi)
 

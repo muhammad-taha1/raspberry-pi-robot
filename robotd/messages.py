@@ -22,6 +22,13 @@ class SetLed(RobotMessage):
 
 
 @dataclass(frozen=True)
+class Speak(RobotMessage):
+    """Text for VoiceActor to synthesize and play."""
+
+    text: str
+
+
+@dataclass(frozen=True)
 class Command(RobotMessage):
     """An external request (e.g. from robotd/web.py) -> CommandActor."""
 
