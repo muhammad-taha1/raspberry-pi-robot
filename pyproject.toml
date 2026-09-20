@@ -10,5 +10,8 @@ requires-python = ">=3.11"
 [tool.setuptools.packages.find]
 include = ["robotd*"]
 
+[tool.setuptools.package-data]
+robotd = ["static/*.html"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

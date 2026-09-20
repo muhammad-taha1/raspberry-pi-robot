@@ -13,6 +13,7 @@ from .command import CommandActor, Route
 from .status import StatusActor
 from .status import command as led_command
 from .voice import VoiceActor
+from .voice import command as say_command
 
 
 class Supervisor:
@@ -27,7 +28,10 @@ class Supervisor:
         self.status = StatusActor.start(led=open_led(cfg.pin("led")))
         self.voice = VoiceActor.start(tts=tts, speaker=speaker)
         self.commands = CommandActor.start(
-            routes={"led": Route(target=self.status, translate=led_command)}
+            routes={
+                "led": Route(target=self.status, translate=led_command),
+                "voice": Route(target=self.voice, translate=say_command),
+            }
         )
 
     def __enter__(self) -> "Supervisor":

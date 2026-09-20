@@ -1,9 +1,13 @@
+import time
+
 from robotd.actors.command import CommandActor, Route
 from robotd.actors.status import StatusActor
 from robotd.actors.status import command as led_command
+from robotd.actors.voice import VoiceActor
+from robotd.actors.voice import command as say_command
 from robotd.messages import Command
 
-from doubles import RecordingLed
+from doubles import RecordingLed, RecordingSpeaker, RecordingTts
 
 
 def start_commands():
@@ -11,6 +15,22 @@ def start_commands():
     status = StatusActor.start(led=led)
     commands = CommandActor.start(routes={"led": Route(target=status, translate=led_command)})
     return led, status, commands
+
+
+def test_voice_reaches_the_voice_actor():
+    tts = RecordingTts()
+    speaker = RecordingSpeaker()
+    voice = VoiceActor.start(tts=tts, speaker=speaker)
+    commands = CommandActor.start(routes={"voice": Route(target=voice, translate=say_command)})
+    try:
+        result = commands.ask(Command("voice", "hi"))
+        time.sleep(0.05)
+    finally:
+        commands.stop()
+        voice.stop()
+
+    assert result.ok
+    assert tts.texts == ["hi"]
 
 
 def test_led_on_reaches_the_led():

@@ -11,9 +11,14 @@ communicate by message, own one device each, and are never imported by each othe
 
 Current status: **M0 done** — package skeleton, config loader, one LED. **M1 done** — Pykka
 actors, `StatusActor` owns the LED, and a `POST /command` HTTP endpoint drives it via
-`CommandActor`. **M2 is implemented pending its USB-speaker Pi check** — `VoiceActor` streams
-Piper TTS to the system-default audio device. Motors and the dead-man's switch move to the end
-of the plan (M14) — see `docs/plan.md`.
+`CommandActor`. **M2 done** — `VoiceActor` streams Piper TTS to the system-default audio
+device, verified on the Pi's USB speaker; the LED's GPIO claim degrades to a warning
+(`robotd/hal/leds.py`'s `open_led`) instead of crashing the daemon when its circuit is
+disconnected. **M3 done (reduced scope)** — `GET /` serves a page (`robotd/static/index.html`)
+with a text box that speaks through `POST /say`; `GET /state` deferred to M4, since today the
+robot has nothing worth reporting there until transcripts exist. **Next: M4** — ears
+(push-to-talk), and `GET /state` picking up real content. Motors and the dead-man's switch
+move to the end of the plan (M14) — see `docs/plan.md`.
 
 ## Repo map
 
@@ -22,14 +27,16 @@ robotd/
   __main__.py     entrypoint; python -m robotd
   config.py       loads config/robot.toml; RobotConfig.pin(name) -> gpio number
   messages.py     the message contract — frozen dataclasses actors send each other
-  web.py          HTTP boundary only (transport) — POST /command -> CommandActor.ask()
+  web.py          HTTP boundary only (transport) — GET /, POST /command, POST /say
+  static/
+    index.html    the status page GET / serves — read from disk per request
   hal/            hardware seam — one Protocol + one real implementation per device
     leds.py       Led protocol + GpioLed, open_led() falls back to a no-op if the pin can't be claimed
     audio.py      Speaker protocol + PyAudioSpeaker (system-default output)
   actors/
     status.py     StatusActor — owns the LED, handles SetLed (on/off only)
     command.py    CommandActor — routes external Command requests to device actors
-    voice.py      VoiceActor — streams Speak text through TTS and the speaker
+    voice.py      VoiceActor — streams Speak text through TTS and the speaker; command() translates any action string to Speak
     supervisor.py Supervisor — starts/stops the actor tree
   models/
     tts.py        TextToSpeech protocol + PiperTts
@@ -76,16 +83,21 @@ Board capability reference (full J8 header, ports, SoC): `docs/pinout.md`
 
 No actor should need to change just because a device was added.
 
-## HTTP command endpoint
+## HTTP endpoints
 
 ```
 curl -X POST -d '{"device":"led","action":"on"}'  http://<pi-host>:8080/command
 curl -X POST -d '{"device":"led","action":"off"}' http://<pi-host>:8080/command
+curl -X POST -d '{"text":"Good evening."}'        http://<pi-host>:8080/say
 ```
+`GET http://<pi-host>:8080/` opens the status page (`robotd/static/index.html`) — a text box
+wired to `POST /say`, viewable from a phone on the same LAN.
 
-`robotd/web.py` is transport only — it decodes JSON and calls `CommandActor.ask()`; it
-knows nothing about device names or message types. Binds `0.0.0.0:8080` with no auth —
-fine on a home LAN, worth remembering once anything with motors is exposed this way (M14).
+`robotd/web.py` is transport only — it decodes JSON and calls `CommandActor.ask()`; it knows
+nothing about device names or message types, with one deliberate exception: `POST /say`
+hardcodes the `"voice"` device, since an utterance is a `{text}` body, not a `{device,
+action}` one. Binds `0.0.0.0:8080` with no auth — fine on a home LAN, worth remembering once
+anything with motors is exposed this way (M14).
 
 ## Invariants
 
@@ -111,6 +123,15 @@ fine on a home LAN, worth remembering once anything with motors is exposed this 
 pytest
 ```
 All tests run without a Pi, a GPIO backend, or any physical device attached.
+
+`robotd` is installed editable into the venv so `python scripts/whatever.py` and
+`python -m robotd` both resolve it regardless of invocation style or working directory:
+
+```
+.venv/bin/pip install -e .
+```
+Re-run this after pulling a change to `pyproject.toml` (e.g. a new package-data entry); plain
+edits inside `robotd/` take effect immediately without it.
 
 For M2 on Raspberry Pi OS, install PortAudio build prerequisites before refreshing the virtual
 environment after pulling the dependency change:
