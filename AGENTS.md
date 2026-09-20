@@ -24,7 +24,7 @@ robotd/
   messages.py     the message contract — frozen dataclasses actors send each other
   web.py          HTTP boundary only (transport) — POST /command -> CommandActor.ask()
   hal/            hardware seam — one Protocol + one real implementation per device
-    leds.py       Led protocol + GpioLed
+    leds.py       Led protocol + GpioLed, open_led() falls back to a no-op if the pin can't be claimed
     audio.py      Speaker protocol + PyAudioSpeaker (system-default output)
   actors/
     status.py     StatusActor — owns the LED, handles SetLed (on/off only)

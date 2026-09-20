@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from robotd.config import RobotConfig
 from robotd.hal.audio import PyAudioSpeaker
-from robotd.hal.leds import GpioLed
+from robotd.hal.leds import open_led
 from robotd.models.tts import PiperTts
 
 from .command import CommandActor, Route
@@ -18,10 +18,13 @@ from .voice import VoiceActor
 class Supervisor:
     def __init__(self, cfg: RobotConfig) -> None:
         # Initialise external dependencies before starting actors. A missing voice
-        # model or unavailable output device must fail cleanly at startup.
+        # model or unavailable output device must fail cleanly at startup. The LED
+        # is the exception: it's the device most likely to be disconnected during
+        # bring-up, so a GPIO claim failure degrades to a warning (see open_led)
+        # instead of taking the whole daemon down.
         tts = PiperTts(cfg.voice_model_path)
         speaker = PyAudioSpeaker()
-        self.status = StatusActor.start(led=GpioLed(cfg.pin("led")))
+        self.status = StatusActor.start(led=open_led(cfg.pin("led")))
         self.voice = VoiceActor.start(tts=tts, speaker=speaker)
         self.commands = CommandActor.start(
             routes={"led": Route(target=self.status, translate=led_command)}
