@@ -17,7 +17,7 @@ from robotd.config import DEFAULT_CONFIG_PATH, load
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH))
-    parser.add_argument("--text", default="HIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII.")
+    parser.add_argument("--text", default="hi i am raspberry pi, i am yourr personal assistant. ask me anything, i know everything")
     args = parser.parse_args()
 
     voice = PiperVoice.load(str(load(args.config).voice_model_path))
