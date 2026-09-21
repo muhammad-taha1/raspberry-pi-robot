@@ -9,18 +9,12 @@ from threading import Thread
 
 import pykka
 
-from robotd.messages import Command, Transcript
+from robotd.messages import Speak, Transcript
 
-COMMAND_PORT = 8080
+HTTP_PORT = 8080
 STATIC_DIR = Path(__file__).parent / "static"
 
-COMMAND_TIMEOUT = 2
 CHAT_TIMEOUT = 30
-
-
-def parse_command(body: bytes) -> Command:
-    payload = json.loads(body)
-    return Command(payload["device"], payload["action"])
 
 
 def parse_text(body: bytes) -> str:
@@ -30,17 +24,17 @@ def parse_text(body: bytes) -> str:
     return text
 
 
-class CommandServer(ThreadingHTTPServer):
+class RobotServer(ThreadingHTTPServer):
     def __init__(
-        self, address: tuple[str, int], commands: pykka.ActorRef, brain: pykka.ActorRef
+        self, address: tuple[str, int], voice: pykka.ActorRef, brain: pykka.ActorRef
     ) -> None:
         super().__init__(address, _Handler)
-        self.commands = commands
+        self.voice = voice
         self.brain = brain
 
 
 class _Handler(BaseHTTPRequestHandler):
-    server: CommandServer
+    server: RobotServer
 
     def do_GET(self) -> None:
         if self.path != "/":
@@ -55,12 +49,8 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.write(html)
 
     def do_POST(self) -> None:
-        if self.path == "/command":
-            self._handle_command(parse_command, "expected {device, action}")
-        elif self.path == "/say":
-            self._handle_command(
-                lambda body: Command("voice", parse_text(body)), "expected {text}"
-            )
+        if self.path == "/say":
+            self._handle_say()
         elif self.path == "/chat":
             self._handle_chat()
         else:
@@ -69,15 +59,15 @@ class _Handler(BaseHTTPRequestHandler):
     def _body(self) -> bytes:
         return self.rfile.read(int(self.headers.get("Content-Length", 0)))
 
-    def _handle_command(self, parse, bad_request_detail: str) -> None:
+    def _handle_say(self) -> None:
         try:
-            cmd = parse(self._body())
+            text = parse_text(self._body())
         except Exception:
-            self._respond(400, {"ok": False, "detail": bad_request_detail})
+            self._respond(400, {"ok": False, "detail": "expected {text}"})
             return
 
-        result = self.server.commands.ask(cmd, timeout=COMMAND_TIMEOUT)
-        self._respond(200 if result.ok else 400, {"ok": result.ok, "detail": result.detail})
+        self.server.voice.tell(Speak(text))
+        self._respond(200, {"ok": True, "detail": text})
 
     def _handle_chat(self) -> None:
         try:
@@ -120,7 +110,7 @@ class _Handler(BaseHTTPRequestHandler):
         pass
 
 
-def serve(commands: pykka.ActorRef, brain: pykka.ActorRef) -> CommandServer:
-    server = CommandServer(("0.0.0.0", COMMAND_PORT), commands, brain)
+def serve(voice: pykka.ActorRef, brain: pykka.ActorRef) -> RobotServer:
+    server = RobotServer(("0.0.0.0", HTTP_PORT), voice, brain)
     Thread(target=server.serve_forever, daemon=True).start()
     return server

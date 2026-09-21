@@ -19,16 +19,15 @@ robotd/
   __main__.py     entrypoint; python -m robotd
   config.py       loads config/robot.toml; RobotConfig.pin(name) -> gpio number
   messages.py     the message contract — frozen dataclasses actors send each other
-  tools.py        ToolRegistry + build_registry(status) — how a device becomes a tool
+  tools.py        ToolRegistry + build_registry(light) — how a device becomes a tool
   phrases.py      generic ACK/FAILED/UNSURE phrase sets
-  web.py          HTTP transport only — GET /, POST /command, POST /say, POST /chat
+  web.py          HTTP transport only — GET /, POST /say, POST /chat
   static/         the status page GET / serves, read from disk per request
   hal/            hardware seam — one Protocol + one real implementation per device
     leds.py       Led protocol; open_led() falls back to a no-op if the pin can't be claimed
     audio.py      Speaker protocol + PyAudioSpeaker (system-default output)
   actors/
-    status.py     StatusActor — owns the LED, handles SetLed
-    command.py    CommandActor — routes external Command requests to device actors
+    light.py      LightActor — owns the LED, handles SetLed
     voice.py      VoiceActor — streams Speak text through TTS and the speaker
     brain.py      BrainActor — Transcript -> LlmProvider -> ToolRegistry.dispatch(), else ChatProvider
     supervisor.py Supervisor — starts/stops the actor tree
@@ -70,30 +69,28 @@ run `pinout` on the Pi.
    Needle's per-argument grounding. Pass `triggers=(...)` (case-insensitive regexes) for
    phrasing the tool must never miss regardless of confidence — check
    `docs/open-questions.md`'s trigger-overlap entry first, since two tools matching the same
-   utterance is undefined. Don't add a `say`-style tool; prose is the chat model's job.
-4. To reach it over `POST /command`, add a `command(action) -> Message | None` translator
-   beside the actor (see `actors/status.py`) and one line in `Supervisor`'s route table.
-5. Add a bring-up script in `scripts/` that talks to the device directly, not through the HAL.
+   utterance is undefined. Don't add a `say`-style tool; prose is the chat model's job. This
+   registry entry is the only wire-in a device needs — there's no second, HTTP-facing route
+   table to also update.
+4. Add a bring-up script in `scripts/` that talks to the device directly, not through the HAL.
 
 No actor should need to change just because a device was added.
 
 ## HTTP endpoints
 
 ```
-curl -X POST -d '{"device":"led","action":"on"}'  http://<pi-host>:8080/command
-curl -X POST -d '{"device":"led","action":"off"}' http://<pi-host>:8080/command
-curl -X POST -d '{"text":"Good evening."}'        http://<pi-host>:8080/say
-curl -X POST -d '{"text":"turn on the light"}'    http://<pi-host>:8080/chat
+curl -X POST -d '{"text":"Good evening."}'     http://<pi-host>:8080/say
+curl -X POST -d '{"text":"turn on the light"}' http://<pi-host>:8080/chat
 ```
 
 `GET /` serves the status page: a say box, a chat box, and `reasoning`/`confidence`/tool calls
 as debug under each turn. Full flow and every `/chat` outcome: `docs/architecture.md`.
 
-`web.py` is transport only, with two deliberate exceptions: `/say` hardcodes the `"voice"`
-device (an utterance is a `{text}` body), and `/chat` talks to `BrainActor` directly, since
-`CommandActor` only `tell()`s and structurally cannot carry a reply back. `/chat` gets a
-longer `ask()` timeout. Binds `0.0.0.0:8080` with no auth — fine on a home LAN, worth
-revisiting once motors are exposed this way (M14).
+`web.py` is transport only, with one deliberate exception: `/chat` talks to `BrainActor`
+directly (with a longer `ask()` timeout) since it's the only endpoint that needs a reply
+carried back over HTTP. `/say` is a direct `tell()` into `VoiceActor` — a human typing text to
+speak, never routed through Needle. Binds `0.0.0.0:8080` with no auth — fine on a home LAN,
+worth revisiting once motors are exposed this way (M14).
 
 ## Invariants
 
@@ -107,6 +104,12 @@ revisiting once motors are exposed this way (M14).
 - `BrainActor` holds no device references and no conversation history. A device reaches it
   only via `tools.py`.
 - Prose is the chat model's job, never a Needle tool.
+- **A reflex acts directly; an intent goes through the brain; a proposal needs consent.** The
+  brain is never in the loop for anything that must be fast (a sensor reflex, M9+) or must be
+  safe (a motion interlock, M14) — those live in the actor that owns the device or the sensor,
+  not routed through `BrainActor`. There is one interpretation actor (`BrainActor`); there is
+  no central command/coordinator actor — arbitration is ownership (one actor per device, one
+  mailbox), not a switchboard.
 
 ## Raspberry Pi setup
 
@@ -183,4 +186,4 @@ keep answering.
 
 `git pull`, restart `robotd`, tail the log. There's no automated device check — verify a
 wiring change by watching `python -m robotd` start cleanly and exercising the device over
-`POST /command`.
+`POST /chat`.

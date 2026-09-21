@@ -9,24 +9,12 @@ from robotd.models.llm import ToolCall
 
 @dataclass(frozen=True)
 class SetLed:
-    on: bool
+    turn_on: bool
 
 
 @dataclass(frozen=True)
 class Speak:
     text: str
-
-
-@dataclass(frozen=True)
-class Command:
-    device: str
-    action: str
-
-
-@dataclass(frozen=True)
-class CommandResult:
-    ok: bool
-    detail: str
 
 
 @dataclass(frozen=True)

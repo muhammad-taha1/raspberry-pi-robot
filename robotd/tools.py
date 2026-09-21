@@ -46,18 +46,18 @@ class ToolRegistry:
         return True
 
 
-def build_registry(status: pykka.ActorRef) -> ToolRegistry:
+def build_registry(light: pykka.ActorRef) -> ToolRegistry:
     registry = ToolRegistry()
 
-    def set_led(on: bool) -> None:
+    def set_led(turn_on: bool) -> None:
         """Turn the robot's status LED on or off.
 
         Also known as the light, the lamp, or the LED.
 
         Args:
-            on: True to switch the LED on, False to switch it off.
+            turn_on: True to switch the LED on, False to switch it off.
         """
-        status.tell(SetLed(on))
+        light.tell(SetLed(turn_on))
 
     registry.add_action(set_led, triggers=LED_TRIGGERS)
     return registry

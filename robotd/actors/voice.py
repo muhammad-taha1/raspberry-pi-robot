@@ -9,10 +9,6 @@ from robotd.messages import Speak
 from robotd.models.tts import TextToSpeech
 
 
-def command(action: str) -> Speak:
-    return Speak(action)
-
-
 class VoiceActor(pykka.ThreadingActor):
     def __init__(self, tts: TextToSpeech, speaker: Speaker) -> None:
         super().__init__()
