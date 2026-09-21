@@ -11,7 +11,7 @@ def run(config_path: str) -> int:
     """Start the actor tree and the command endpoint; run until interrupted."""
     cfg = load(config_path)
     with Supervisor(cfg) as robot:
-        server = serve(robot.commands)
+        server = serve(robot.commands, robot.brain)
         print(f"robotd: running, POST /command on :{COMMAND_PORT} (Ctrl-C to stop)")
         try:
             while True:

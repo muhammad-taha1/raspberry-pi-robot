@@ -1,10 +1,12 @@
-"""Test doubles implementing robotd/hal protocols. Never shipped in robotd/."""
+"""Test doubles implementing robotd/hal and robotd/models protocols. Never
+shipped in robotd/."""
 
 from __future__ import annotations
 
 from collections.abc import Iterable
 
 from robotd.hal.audio import AudioChunk
+from robotd.models.llm import Completion
 
 
 class RecordingLed:
@@ -63,3 +65,16 @@ class RecordingSpeaker:
 
     def close(self) -> None:
         self.closed = True
+
+
+class ScriptedLlm:
+    """Implements LlmProvider. Returns queued Completions, records what it
+    was asked."""
+
+    def __init__(self, completions: list[Completion]) -> None:
+        self._completions = list(completions)
+        self.texts: list[str] = []
+
+    def complete(self, text: str) -> Completion:
+        self.texts.append(text)
+        return self._completions.pop(0)

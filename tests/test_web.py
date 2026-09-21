@@ -3,7 +3,7 @@ import json
 import pytest
 
 from robotd.messages import Command, CommandResult
-from robotd.web import parse_command, parse_say, status_for
+from robotd.web import parse_chat, parse_command, parse_say, status_for
 
 
 def test_parses_valid_command():
@@ -52,3 +52,23 @@ def test_parses_valid_say():
 def test_rejects_bad_say_bodies(body):
     with pytest.raises((json.JSONDecodeError, KeyError, ValueError)):
         parse_say(body)
+
+
+def test_parses_valid_chat():
+    body = json.dumps({"text": "turn on the light"}).encode()
+    assert parse_chat(body) == "turn on the light"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"not json",
+        b"{}",
+        json.dumps({"text": 1}).encode(),
+        json.dumps({"text": ""}).encode(),
+        json.dumps({"text": "   "}).encode(),
+    ],
+)
+def test_rejects_bad_chat_bodies(body):
+    with pytest.raises((json.JSONDecodeError, KeyError, ValueError)):
+        parse_chat(body)

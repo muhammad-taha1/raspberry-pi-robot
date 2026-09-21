@@ -39,6 +39,11 @@
   #result { margin-top: 1rem; font-size: 0.9rem; min-height: 1.2em; }
   #result.ok { color: #6c6; }
   #result.err { color: #e66; }
+  hr { border: none; border-top: 1px solid #333; margin: 2rem 0 1.5rem; }
+  #log { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+  .msg { font-size: 0.95rem; }
+  .msg .who { font-weight: 600; }
+  .msg .meta { color: #888; font-size: 0.8rem; }
 </style>
 </head>
 <body>
@@ -47,6 +52,14 @@
   <br>
   <button id="say">Say it</button>
   <div id="result"></div>
+
+  <hr>
+
+  <h1>chat</h1>
+  <div id="log"></div>
+  <textarea id="chatText" rows="2" placeholder="Ask the robot to do something..."></textarea>
+  <br>
+  <button id="send">Send</button>
 
   <script>
     const text = document.getElementById("text");
@@ -71,6 +84,47 @@
         result.textContent = String(err);
       } finally {
         say.disabled = false;
+      }
+    });
+
+    const chatText = document.getElementById("chatText");
+    const send = document.getElementById("send");
+    const log = document.getElementById("log");
+
+    function addMessage(who, body) {
+      const div = document.createElement("div");
+      div.className = "msg";
+      div.innerHTML = `<span class="who">${who}:</span> ${body}`;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+      return div;
+    }
+
+    send.addEventListener("click", async () => {
+      const value = chatText.value;
+      if (!value.trim()) return;
+      send.disabled = true;
+      addMessage("you", value);
+      chatText.value = "";
+      const thinking = addMessage("robot", "...");
+      try {
+        const res = await fetch("/chat", {
+          method: "POST",
+          body: JSON.stringify({ text: value }),
+        });
+        const body = await res.json();
+        if (!body.ok) {
+          thinking.innerHTML = `<span class="who">robot:</span> ${body.detail}`;
+        } else {
+          const calls = body.calls.map((c) => c.name).join(", ") || "nothing";
+          thinking.innerHTML =
+            `<span class="who">robot:</span> ${calls}` +
+            `<div class="meta">confidence: ${body.confidence} — ${body.reasoning}</div>`;
+        }
+      } catch (err) {
+        thinking.innerHTML = `<span class="who">robot:</span> ${String(err)}`;
+      } finally {
+        send.disabled = false;
       }
     });
   </script>

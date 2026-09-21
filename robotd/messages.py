@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from robotd.models.llm import ToolCall
+
 
 class RobotMessage:
     """Marker base only — no fields, no behaviour."""
@@ -42,3 +44,20 @@ class CommandResult:
 
     ok: bool
     detail: str
+
+
+@dataclass(frozen=True)
+class Transcript(RobotMessage):
+    """Something heard -> BrainActor. Today from robotd/web.py's POST /chat;
+    from M4 onward, HearingActor emits this exact message unchanged."""
+
+    text: str
+
+
+@dataclass(frozen=True)
+class ChatReply:
+    """Reply to a Transcript ask() — not bus traffic, so no RobotMessage base."""
+
+    tool_calls: list[ToolCall]
+    reasoning: str
+    confidence: float | None

@@ -6,3 +6,7 @@ piper-tts>=1.4,<2.0
 # On Raspberry Pi OS, install portaudio19-dev and python3-dev before pip
 # installs this package into robotd's virtual environment.
 PyAudio>=0.2.14,<1.0
+# Needle 3 — on-device tool-calling brain. Pure-Python wheel, no ARM64 build
+# step. Weights are fetched from Hugging Face and cached on first run; see
+# AGENTS.md for `needle download needle3` to pre-fetch them on the Pi.
+cactus-needle>=3.0,<4.0
