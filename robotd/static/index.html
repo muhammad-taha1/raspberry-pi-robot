@@ -116,10 +116,16 @@
         if (!body.ok) {
           thinking.innerHTML = `<span class="who">robot:</span> ${body.detail}`;
         } else {
-          const calls = body.calls.map((c) => c.name).join(", ") || "nothing";
+          const calls = body.calls.map((c) => c.name).join(", ") || "none";
+          const meta = [`calls: ${calls}`, `confidence: ${body.confidence}`, body.reasoning];
+          if (body.error) meta.push(`error: ${body.error}`);
+          if (body.suppressed_calls && body.suppressed_calls.length) {
+            meta.push(`suppressed: ${body.suppressed_calls.map((c) => c.name).join(", ")}`);
+          }
+          if (body.ungrounded) meta.push("ungrounded");
           thinking.innerHTML =
-            `<span class="who">robot:</span> ${calls}` +
-            `<div class="meta">confidence: ${body.confidence} — ${body.reasoning}</div>`;
+            `<span class="who">robot:</span> ${body.text}` +
+            `<div class="meta">${meta.join(" — ")}</div>`;
         }
       } catch (err) {
         thinking.innerHTML = `<span class="who">robot:</span> ${String(err)}`;

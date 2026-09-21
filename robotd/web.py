@@ -65,9 +65,15 @@ def status_for(result: CommandResult) -> int:
 def chat_body(reply: ChatReply) -> dict:
     return {
         "ok": True,
+        "text": reply.text,
         "reasoning": reply.reasoning,
         "confidence": reply.confidence,
         "calls": [{"name": c.name, "arguments": c.arguments} for c in reply.tool_calls],
+        "error": reply.error,
+        "suppressed_calls": [
+            {"name": c.name, "arguments": c.arguments} for c in reply.suppressed_calls
+        ],
+        "ungrounded": reply.ungrounded,
     }
 
 
@@ -126,7 +132,11 @@ class _Handler(BaseHTTPRequestHandler):
             self._respond(400, {"ok": False, "detail": "expected {text}"})
             return
 
-        reply = self.server.brain.ask(Transcript(text), timeout=CHAT_TIMEOUT)
+        try:
+            reply = self.server.brain.ask(Transcript(text), timeout=CHAT_TIMEOUT)
+        except pykka.Timeout:
+            self._respond(504, {"ok": False, "detail": "brain did not reply in time"})
+            return
         self._respond(200, chat_body(reply))
 
     def _respond(self, status: int, body: dict) -> None:

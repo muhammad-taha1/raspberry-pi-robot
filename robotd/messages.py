@@ -7,7 +7,7 @@ a generic `if msg.kind == ...` ladder.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from robotd.models.llm import ToolCall
 
@@ -58,6 +58,10 @@ class Transcript(RobotMessage):
 class ChatReply:
     """Reply to a Transcript ask() — not bus traffic, so no RobotMessage base."""
 
+    text: str
     tool_calls: list[ToolCall]
     reasoning: str
     confidence: float | None
+    error: str | None = None
+    suppressed_calls: list[ToolCall] = field(default_factory=list)
+    ungrounded: bool = False

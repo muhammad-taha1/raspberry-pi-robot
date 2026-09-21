@@ -15,7 +15,7 @@ from collections.abc import Callable
 
 import pykka
 
-from robotd.messages import SetLed, Speak
+from robotd.messages import SetLed
 from robotd.models.llm import ToolCall
 
 logger = logging.getLogger(__name__)
@@ -31,25 +31,25 @@ class ToolRegistry:
     def functions(self) -> list[Callable]:
         return list(self._tools.values())
 
-    def dispatch(self, call: ToolCall) -> None:
+    def dispatch(self, call: ToolCall) -> bool:
         fn = self._tools.get(call.name)
         if fn is None:
             logger.warning("ignoring unknown tool call '%s'", call.name)
-            return
-        fn(**call.arguments)
+            return False
+        try:
+            fn(**call.arguments)
+        except TypeError:
+            logger.warning("bad arguments for tool call '%s'", call.name, exc_info=True)
+            return False
+        return True
 
 
-def build_registry(voice: pykka.ActorRef, status: pykka.ActorRef) -> ToolRegistry:
+def build_registry(status: pykka.ActorRef) -> ToolRegistry:
     registry = ToolRegistry()
-
-    def say(text: str) -> None:
-        """Speak a sentence out loud."""
-        voice.tell(Speak(text))
 
     def set_led(on: bool) -> None:
         """Turn the robot's status LED on or off."""
         status.tell(SetLed(on))
 
-    registry.add_action(say)
     registry.add_action(set_led)
     return registry

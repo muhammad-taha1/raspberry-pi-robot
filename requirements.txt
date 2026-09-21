@@ -10,3 +10,7 @@ PyAudio>=0.2.14,<1.0
 # step. Weights are fetched from Hugging Face and cached on first run; see
 # AGENTS.md for `needle download needle3` to pre-fetch them on the Pi.
 cactus-needle>=3.0,<4.0
+# M6 — small local chat GGUF for prose Needle can't produce (jokes, greetings).
+# May compile from source on the Pi; install build-essential and cmake first
+# if the wheel doesn't have a prebuilt ARM64 binary. See AGENTS.md.
+llama-cpp-python>=0.3,<0.4

@@ -8,7 +8,7 @@ provider's, so the same registry works no matter which provider is behind it.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 
@@ -23,6 +23,10 @@ class Completion:
     tool_calls: list[ToolCall]
     reasoning: str
     confidence: float | None
+    ok: bool = True
+    error: str | None = None
+    suppressed_calls: list[ToolCall] = field(default_factory=list)
+    ungrounded: bool = False
 
 
 class LlmProvider(Protocol):
@@ -44,8 +48,16 @@ class NeedleLlm:
             ToolCall(call["name"], call["arguments"])
             for call in result["function_calls"]
         ]
+        suppressed = [
+            ToolCall(call["name"], call["arguments"])
+            for call in result.get("suppressed_calls", [])
+        ]
         return Completion(
             tool_calls=calls,
             reasoning=result["reasoning"],
             confidence=result["confidence"],
+            ok=result.get("success", True),
+            error=result.get("error"),
+            suppressed_calls=suppressed,
+            ungrounded=bool((result.get("validation") or {}).get("ungrounded", False)),
         )

@@ -17,12 +17,33 @@ device, verified on the Pi's USB speaker; the LED's GPIO claim degrades to a war
 disconnected. **M3 done (reduced scope)** — `GET /` serves a page (`robotd/static/index.html`)
 with a text box that speaks through `POST /say`; `GET /state` deferred to M4. **M5 done, moved
 ahead of M4** — `BrainActor` runs Needle 3 (`cactus-needle`) fully on-device: a `POST /chat`
-utterance becomes tool calls (`say`, `set_led`) dispatched through `tools.py`'s `ToolRegistry`,
-with `confidence` logged on every completion. Moved ahead of M4 because it needed no new
-hardware — the existing status page grew a chat box — while M4's ears just add a second way to
-produce the same `Transcript` message this milestone already introduced. **Next: M4** — ears
+utterance becomes tool calls dispatched through `tools.py`'s `ToolRegistry`, with `confidence`
+logged on every completion. Moved ahead of M4 because it needed no new hardware — the existing
+status page grew a chat box — while M4's ears just add a second way to produce the same
+`Transcript` message this milestone already introduced. **M6 done, moved ahead of M4 for the
+same reason as M5** — `BrainActor` gained a `ChatProvider` (`robotd/models/chat.py`): a tool
+call now gets a generic static acknowledgement (`robotd/phrases.py`), and empty tool calls
+(jokes, greetings — anything Needle can't serve) go to a small local chat model instead of the
+old silent fallback; `say` retired from the tool registry since speech is now the brain's own
+output. Needle never generates prose, so this is a second model behind a second protocol, not
+a confidence-gated cloud handoff — see `docs/architecture.md`'s "Expected behaviour" table for
+every outcome. **Pending:** Stage 1's `scripts/chat_test.py` bring-up spike still needs to run
+on the Pi to confirm the chat model choice (see `docs/m6-research.md`). **Next: M4** — ears
 (push-to-talk), and `GET /state` picking up real content (transcripts). Motors and the
 dead-man's switch move to the end of the plan (M14) — see `docs/plan.md`.
+
+## Documentation
+
+`docs/` is gitignored — local-only, never committed, never reaches the Pi via `git pull` (see
+"Repo hygiene" in `docs/plan.md`'s M0 entry). It still holds the project's working memory:
+
+- `docs/plan.md` — the milestone plan and the decisions behind it; the source of truth for *why*
+- `docs/architecture.md` — current actor tree, message flow, and a behaviour matrix for `/chat`
+- `docs/open-questions.md` — deferred decisions; check before starting a new milestone
+- `docs/pinout.md` — full board capability reference (J8 header, ports, SoC)
+
+Regenerate `docs/architecture.md` whenever a milestone adds or rewires an actor — it says so
+at its own top, and it's the fastest way to answer "why does X reach device Y two ways?"
 
 ## Repo map
 
@@ -31,7 +52,8 @@ robotd/
   __main__.py     entrypoint; python -m robotd
   config.py       loads config/robot.toml; RobotConfig.pin(name) -> gpio number
   messages.py     the message contract — frozen dataclasses actors send each other
-  tools.py        ToolRegistry + build_registry(voice, status) — how a device becomes a tool
+  tools.py        ToolRegistry + build_registry(status) — how a device becomes a tool
+  phrases.py      generic ACK/FAILED/UNSURE phrase sets — used by BrainActor and NullChat
   web.py          HTTP boundary only (transport) — GET /, POST /command, POST /say, POST /chat
   static/
     index.html    the status page GET / serves — read from disk per request
@@ -42,11 +64,12 @@ robotd/
     status.py     StatusActor — owns the LED, handles SetLed (on/off only)
     command.py    CommandActor — routes external Command requests to device actors
     voice.py      VoiceActor — streams Speak text through TTS and the speaker; command() translates any action string to Speak
-    brain.py      BrainActor — Transcript -> LlmProvider.complete() -> ToolRegistry.dispatch()
+    brain.py      BrainActor — Transcript -> LlmProvider.complete() -> ToolRegistry.dispatch(), or ChatProvider.reply() if nothing to dispatch
     supervisor.py Supervisor — starts/stops the actor tree
   models/
     tts.py        TextToSpeech protocol + PiperTts
     llm.py        LlmProvider protocol + NeedleLlm (Needle 3, on-device, owns its own history)
+    chat.py       ChatProvider protocol + LlamaCppChat / NullChat — prose Needle can't produce
 scripts/          hardware bring-up bench — plain, blocking, run over SSH
 tests/            pytest — logic only, no hardware required
   doubles.py      test doubles implementing hal/ and models/ protocols — never in robotd/
@@ -81,9 +104,10 @@ Board capability reference (full J8 header, ports, SoC): `docs/pinout.md`
 2. Add its pin(s)/address to `config/robot.toml`.
 3. If the brain should be able to use it, register it in `tools.py`'s `build_registry()` — a
    small function taking the actor and `tell()`ing it, passed to `registry.add_action()` (see
-   `say`/`set_led` there). The function's name and docstring *are* the schema Needle reads, so
+   `set_led` there). The function's name and docstring *are* the schema Needle reads, so
    there's no separate description string to keep in sync. This is the only place `BrainActor`
-   learns about a device.
+   learns about a device. Do not add a `say`-style tool for prose — that's the chat model's
+   job now (`robotd/models/chat.py`), consulted only when Needle dispatches nothing.
 4. If it should be reachable over `POST /command`, add a `command(action) -> Message | None`
    translator next to the actor's own module (see `robotd/actors/status.py`) and one line
    in `Supervisor`'s route table. `CommandActor` never learns a device's message types
@@ -102,8 +126,10 @@ curl -X POST -d '{"text":"Good evening."}'        http://<pi-host>:8080/say
 curl -X POST -d '{"text":"turn on the light"}'    http://<pi-host>:8080/chat
 ```
 `GET http://<pi-host>:8080/` opens the status page (`robotd/static/index.html`) — a text box
-wired to `POST /say`, and below it a chat box wired to `POST /chat` showing the model's
-`reasoning`/`confidence` under each reply, viewable from a phone on the same LAN.
+wired to `POST /say`, and below it a chat box wired to `POST /chat` showing the spoken reply
+plus `reasoning`/`confidence`/tool calls as debug under each turn, viewable from a phone on
+the same LAN. Full request/response flow and every `/chat` outcome (tool ack, chat reply,
+unsure fallback): `docs/architecture.md`.
 
 `robotd/web.py` is transport only — it decodes JSON and calls `CommandActor.ask()` or
 `BrainActor.ask()`; it knows nothing about device names or message types, with two deliberate
@@ -133,9 +159,12 @@ anything with motors is exposed this way (M14).
 - `robotd/` ships real implementations only. Test doubles live in `tests/doubles.py`.
 - `scripts/` stays plain, blocking, and actor-free — it exists to test wiring, not logic.
 - `BrainActor` holds no device references and no conversation history. A device reaches it
-  only by being registered as a tool in `tools.py` (`NeedleLlm` owns the conversation window
-  itself); the moment `BrainActor` needs to `tell()` a device directly, that device belongs in
-  the registry instead.
+  only by being registered as a tool in `tools.py` (`NeedleLlm` and the M6 `ChatProvider` each
+  own their own conversation window); the moment `BrainActor` needs to `tell()` a device
+  directly, that device belongs in the registry instead.
+- Prose is the chat model's job, never a Needle tool. `say`-as-a-tool was retired in M6 —
+  Needle owns GPIO calls, the `ChatProvider` behind `robotd/models/chat.py` owns spoken
+  sentences, and `BrainActor` consults the latter only when Needle dispatches nothing.
 
 ## Testing without hardware
 
@@ -201,6 +230,23 @@ python scripts/brain_test.py --text "turn the light on and say good evening"
 and a plausible `confidence`/decode speed on the Pi 5 before trusting `python -m robotd`'s
 `POST /chat`. Pull the network cable and repeat a `/chat` request to confirm the model still
 answers fully offline — that's the entire point of running it on-device.
+
+For M6, `llama-cpp-python` may compile `llama.cpp` from source on the Pi unless a prebuilt
+ARM64 wheel is available:
+
+```
+sudo apt install build-essential cmake
+.venv/bin/pip install -r requirements.txt
+```
+
+Install a chat GGUF manually at the path in `config/robot.toml`'s `[chat]` section, out of
+Git like the Piper voice. Run `python scripts/chat_test.py --model <path>` first — it prints
+reply text, tok/s, latency, and peak RSS for the exact prompts that motivated M6 ("tell me a
+joke", "how are you?"); see `docs/m6-research.md` for the pass bar and current candidate. A
+missing or failed-to-load GGUF degrades `robotd` to a logged warning and an "I'm not sure how
+to answer that"-style fallback (`robotd/models/chat.py`'s `NullChat`) rather than crashing —
+same pattern as the LED's `open_led()`. Pull the network cable and repeat a few `/chat`
+prompts (a joke, "turn on the light") to confirm both models still answer fully offline.
 
 ## Deploy loop (on the Pi)
 

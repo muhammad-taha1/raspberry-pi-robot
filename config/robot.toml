@@ -16,3 +16,10 @@ motor_in4 = 23
 # Installed manually on the Pi. Keep this model and its matching .onnx.json
 # sidecar out of Git (see .gitignore).
 model_path = "/home/taha/robot/voices/en_GB-alan-medium.onnx"
+
+[chat]
+# Small local GGUF for prose (jokes/greetings/small talk) after Needle's tool
+# calls come back empty. Installed manually on the Pi, kept out of Git (see
+# .gitignore). Missing file degrades to NullChat with a logged warning
+# rather than crashing the daemon — see robotd/models/chat.py.
+model_path = "/home/taha/robot/models/LFM2.5-350M-Q4_K_M.gguf"

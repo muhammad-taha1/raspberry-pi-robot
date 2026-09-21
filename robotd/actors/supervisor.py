@@ -7,6 +7,7 @@ from __future__ import annotations
 from robotd.config import RobotConfig
 from robotd.hal.audio import PyAudioSpeaker
 from robotd.hal.leds import open_led
+from robotd.models.chat import open_chat
 from robotd.models.llm import NeedleLlm
 from robotd.models.tts import PiperTts
 from robotd.tools import build_registry
@@ -31,9 +32,10 @@ class Supervisor:
         self.status = StatusActor.start(led=open_led(cfg.pin("led")))
         self.voice = VoiceActor.start(tts=tts, speaker=speaker)
 
-        registry = build_registry(voice=self.voice, status=self.status)
+        registry = build_registry(status=self.status)
         llm = NeedleLlm(registry.functions())
-        self.brain = BrainActor.start(llm=llm, registry=registry, voice=self.voice)
+        chat = open_chat(cfg.chat_model_path)
+        self.brain = BrainActor.start(llm=llm, registry=registry, voice=self.voice, chat=chat)
 
         self.commands = CommandActor.start(
             routes={

@@ -78,3 +78,24 @@ class ScriptedLlm:
     def complete(self, text: str) -> Completion:
         self.texts.append(text)
         return self._completions.pop(0)
+
+
+class ScriptedChat:
+    """Implements ChatProvider. Returns queued strings, records what it was
+    asked — proves chat is (or isn't) consulted for a given Transcript."""
+
+    def __init__(self, replies: list[str]) -> None:
+        self._replies = list(replies)
+        self.texts: list[str] = []
+
+    def reply(self, text: str) -> str:
+        self.texts.append(text)
+        return self._replies.pop(0)
+
+
+class RaisingChat:
+    """Implements ChatProvider. Raises on reply() — proves BrainActor speaks
+    an UNSURE phrase instead of crashing when chat fails."""
+
+    def reply(self, text: str) -> str:
+        raise RuntimeError("chat model fault")
