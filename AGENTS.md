@@ -9,35 +9,15 @@ A Raspberry Pi 5 desk companion robot, built one milestone at a time. Actors (Py
 communicate by message, own one device each, and are never imported by each other. See
 "Recipe: adding a device" below before writing any new hardware code.
 
-Current status: **M0 done** — package skeleton, config loader, one LED. **M1 done** — Pykka
-actors, `StatusActor` owns the LED, and a `POST /command` HTTP endpoint drives it via
-`CommandActor`. **M2 done** — `VoiceActor` streams Piper TTS to the system-default audio
-device, verified on the Pi's USB speaker; the LED's GPIO claim degrades to a warning
-(`robotd/hal/leds.py`'s `open_led`) instead of crashing the daemon when its circuit is
-disconnected. **M3 done (reduced scope)** — `GET /` serves a page (`robotd/static/index.html`)
-with a text box that speaks through `POST /say`; `GET /state` deferred to M4. **M5 done, moved
-ahead of M4** — `BrainActor` runs Needle 3 (`cactus-needle`) fully on-device: a `POST /chat`
-utterance becomes tool calls dispatched through `tools.py`'s `ToolRegistry`, with `confidence`
-logged on every completion. Moved ahead of M4 because it needed no new hardware — the existing
-status page grew a chat box — while M4's ears just add a second way to produce the same
-`Transcript` message this milestone already introduced. **M6 done, moved ahead of M4 for the
-same reason as M5** — `BrainActor` gained a `ChatProvider` (`robotd/models/chat.py`): a tool
-call now gets a generic static acknowledgement (`robotd/phrases.py`), and empty tool calls
-(jokes, greetings — anything Needle can't serve) go to a small local chat model instead of the
-old silent fallback; `say` retired from the tool registry since speech is now the brain's own
-output. Needle never generates prose, so this is a second model behind a second protocol, not
-a confidence-gated cloud handoff — see `docs/architecture.md`'s "Expected behaviour" table for
-every outcome. **Pending:** Stage 1's `scripts/chat_test.py` bring-up spike still needs to run
-on the Pi to confirm the chat model choice (see `docs/m6-research.md`). **Next: M4** — ears
-(push-to-talk), and `GET /state` picking up real content (transcripts). Motors and the
-dead-man's switch move to the end of the plan (M14) — see `docs/plan.md`.
+Current milestone status, decisions, and rationale live in `docs/plan.md` (gitignored,
+local-only — see "Documentation" below).
 
 ## Documentation
 
 `docs/` is gitignored — local-only, never committed, never reaches the Pi via `git pull` (see
-"Repo hygiene" in `docs/plan.md`'s M0 entry). It still holds the project's working memory:
+"Repo hygiene" in `docs/plan.md`'s M0 entry). It holds the project's working memory:
 
-- `docs/plan.md` — the milestone plan and the decisions behind it; the source of truth for *why*
+- `docs/plan.md` — the milestone plan, current status, and the decisions behind it
 - `docs/architecture.md` — current actor tree, message flow, and a behaviour matrix for `/chat`
 - `docs/open-questions.md` — deferred decisions; check before starting a new milestone
 - `docs/pinout.md` — full board capability reference (J8 header, ports, SoC)
@@ -159,12 +139,53 @@ anything with motors is exposed this way (M14).
 - `robotd/` ships real implementations only. Test doubles live in `tests/doubles.py`.
 - `scripts/` stays plain, blocking, and actor-free — it exists to test wiring, not logic.
 - `BrainActor` holds no device references and no conversation history. A device reaches it
-  only by being registered as a tool in `tools.py` (`NeedleLlm` and the M6 `ChatProvider` each
-  own their own conversation window); the moment `BrainActor` needs to `tell()` a device
-  directly, that device belongs in the registry instead.
-- Prose is the chat model's job, never a Needle tool. `say`-as-a-tool was retired in M6 —
-  Needle owns GPIO calls, the `ChatProvider` behind `robotd/models/chat.py` owns spoken
-  sentences, and `BrainActor` consults the latter only when Needle dispatches nothing.
+  only by being registered as a tool in `tools.py` (`NeedleLlm` and `ChatProvider` each own
+  their own conversation window); the moment `BrainActor` needs to `tell()` a device directly,
+  that device belongs in the registry instead.
+- Prose is the chat model's job, never a Needle tool: Needle owns GPIO calls, `ChatProvider`
+  (`robotd/models/chat.py`) owns spoken sentences, and `BrainActor` consults the latter only
+  when Needle dispatches nothing.
+
+## Raspberry Pi setup (first boot to running service)
+
+1. **Flash Raspberry Pi OS** (64-bit, Bookworm or later — required for `rpi-lgpio`/Pi 5
+   support) with Raspberry Pi Imager. In the Imager's settings (gear icon / Ctrl+Shift+X)
+   before writing: set hostname, enable SSH (password or your public key), set the
+   username/password, and join Wi-Fi if not using Ethernet. This avoids a monitor/keyboard
+   entirely.
+2. **Boot it, then SSH in**: `ssh <user>@<hostname>.local` (mDNS; use the DHCP-assigned IP if
+   `.local` doesn't resolve on your network).
+3. **Update and install system prerequisites**:
+   ```
+   sudo apt update && sudo apt full-upgrade -y
+   sudo apt install -y git python3-venv portaudio19-dev python3-dev build-essential cmake
+   ```
+4. **Clone the repo and create the venv**:
+   ```
+   git clone <this-repo-url> ~/robot
+   cd ~/robot
+   python3 -m venv .venv
+   .venv/bin/pip install -r requirements.txt
+   .venv/bin/pip install -e .
+   ```
+5. **Install the models manually** (never committed — see `.gitignore`): the Piper voice at
+   `config/robot.toml`'s `[voice] model_path`, and the chat GGUF at `[chat] model_path`; then
+   `.venv/bin/needle download needle3` to pre-fetch Needle's weights. See "Testing without
+   hardware" below for the per-subsystem bring-up scripts that confirm each one before
+   trusting `python -m robotd`.
+6. **Wire the hardware** per `config/robot.toml`'s pin map (below) and confirm with the
+   matching `scripts/*_test.py` bring-up script.
+7. **Install the systemd service** so the robot survives a reboot:
+   ```
+   sudo cp deploy/robotd.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now robotd
+   journalctl -fu robotd
+   ```
+   Edit `deploy/robotd.service`'s `WorkingDirectory`/`ExecStart`/`User` first if the repo
+   isn't cloned to `/home/taha/robot` or the user isn't `taha`.
+8. From then on, `./deploy/deploy.sh` (`git pull`, restart, tail the log) is the update loop —
+   see "Deploy loop" below.
 
 ## Testing without hardware
 
@@ -182,71 +203,51 @@ All tests run without a Pi, a GPIO backend, or any physical device attached.
 Re-run this after pulling a change to `pyproject.toml` (e.g. a new package-data entry); plain
 edits inside `robotd/` take effect immediately without it.
 
-For M2 on Raspberry Pi OS, install PortAudio build prerequisites before refreshing the virtual
-environment after pulling the dependency change:
-
+**Voice (Piper).** Needs PortAudio's headers to build `PyAudio`:
 ```
 sudo apt install portaudio19-dev python3-dev
 .venv/bin/pip install -r requirements.txt
 ```
+Install `en_GB-alan-medium.onnx` + its `.onnx.json` sidecar manually at the path in
+`config/robot.toml`. `python scripts/speaker_test.py` confirms the system-default output is
+the USB speaker, then `python scripts/voice_test.py` proves Piper streams through it.
 
-Install `en_GB-alan-medium.onnx` and its matching `.onnx.json` sidecar manually at the path in
-`config/robot.toml`. Run `python scripts/speaker_test.py` to confirm the system-default output
-is the USB speaker, then `python scripts/voice_test.py` to prove Piper streams through it before
-starting `python -m robotd`.
-
-**If `speaker_test.py`/`voice_test.py` produce no sound (or `robotd`'s log shows
-`paInvalidSampleRate`):** ALSA's `"default"` device has no config pinning it, so it falls back
-to card 0 — on this hardware that's `vc4hdmi0` (the Pi's HDMI output, no monitor attached, and
-it doesn't support Piper's 22050Hz rate anyway), not the USB speaker. `aplay -l` shows each
-card's index and name; USB card numbering isn't stable across reboots/hotplugs, so pin
-`~/.asoundrc` **by name**, not index:
+If there's no sound (or `robotd` logs `paInvalidSampleRate`): ALSA's `"default"` falls back to
+card 0 (`vc4hdmi0`, the Pi's HDMI out, no monitor attached and wrong sample rate), not the USB
+speaker. `aplay -l` lists card names; pin `~/.asoundrc` **by name** (USB card numbering isn't
+stable across reboots):
 ```
-pcm.!default {
-    type plug
-    slave.pcm "hw:CARD=Device"
-}
-ctl.!default {
-    type hw
-    card "Device"
-}
+pcm.!default { type plug; slave.pcm "hw:CARD=Device" }
+ctl.!default { type hw; card "Device" }
 ```
-(`Device` here is the USB card's name from `aplay -l`'s `card 2: Device [USB Composite
-Device]` — substitute whatever your `aplay -l` actually shows.) `type plug` also makes ALSA
-resample if a future device doesn't natively support Piper's rate, instead of PortAudio
-hard-failing. Re-run `speaker_test.py` to confirm before trusting `robotd`.
+(substitute the USB card's name from `aplay -l`). Re-run `speaker_test.py` to confirm.
 
-For M5, `cactus-needle` is a pure-Python wheel — no ARM64 build step, no extra apt packages.
-Its weights are fetched from Hugging Face and cached on first run; pre-fetch them once on the
-Pi so `python -m robotd` doesn't hit the network at boot:
-
+**Brain (Needle 3).** Pure-Python wheel, no ARM64 build step. Pre-fetch weights once so
+`python -m robotd` doesn't hit the network at boot:
 ```
 .venv/bin/pip install -r requirements.txt
 .venv/bin/needle download needle3
 python scripts/brain_test.py --text "turn the light on and say good evening"
 ```
+`brain_test.py` confirms install, weight cache, and a plausible `confidence`/decode speed
+before trusting `POST /chat`.
 
-`brain_test.py` is the bring-up bench for the model itself — confirms install, weight cache,
-and a plausible `confidence`/decode speed on the Pi 5 before trusting `python -m robotd`'s
-`POST /chat`. Pull the network cable and repeat a `/chat` request to confirm the model still
-answers fully offline — that's the entire point of running it on-device.
-
-For M6, `llama-cpp-python` may compile `llama.cpp` from source on the Pi unless a prebuilt
-ARM64 wheel is available:
-
+**Chat model (llama.cpp).** May compile `llama.cpp` from source unless a prebuilt ARM64 wheel
+exists:
 ```
 sudo apt install build-essential cmake
 .venv/bin/pip install -r requirements.txt
 ```
+Install a chat GGUF manually at the path in `config/robot.toml`'s `[chat]` section, out of Git
+like the Piper voice. `python scripts/chat_test.py --model <path>` prints reply text, tok/s,
+latency, and peak RSS for canned prompts before trusting `POST /chat`'s chat replies. A missing
+or failed-to-load GGUF degrades `robotd` to a logged warning and a spoken fallback
+(`robotd/models/chat.py`'s `NullChat`) instead of crashing — same pattern as the LED's
+`open_led()`.
 
-Install a chat GGUF manually at the path in `config/robot.toml`'s `[chat]` section, out of
-Git like the Piper voice. Run `python scripts/chat_test.py --model <path>` first — it prints
-reply text, tok/s, latency, and peak RSS for the exact prompts that motivated M6 ("tell me a
-joke", "how are you?"); see `docs/m6-research.md` for the pass bar and current candidate. A
-missing or failed-to-load GGUF degrades `robotd` to a logged warning and an "I'm not sure how
-to answer that"-style fallback (`robotd/models/chat.py`'s `NullChat`) rather than crashing —
-same pattern as the LED's `open_led()`. Pull the network cable and repeat a few `/chat`
-prompts (a joke, "turn on the light") to confirm both models still answer fully offline.
+**Offline check.** Pull the network cable and repeat a few `/chat` prompts (a joke, "turn on
+the light") — both Needle and the chat model must keep answering; that's the point of running
+both on-device.
 
 ## Deploy loop (on the Pi)
 
