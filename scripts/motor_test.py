@@ -1,8 +1,3 @@
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from gpiozero import OutputDevice
 from time import sleep
 
@@ -70,7 +65,6 @@ try:
     stop()
 
 finally:
-    # Always stop the motors if the program exits/errors.
     stop()
     IN1.close()
     IN2.close()

@@ -1,6 +1,7 @@
 .venv/
 __pycache__/
 *.pyc
+*.egg-info/
 voices/
 
 # Local-only project docs — never committed, never pulled to the Pi

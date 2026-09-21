@@ -1,11 +1,4 @@
-"""StatusActor — owns the status LED. The first actor in the tree.
-
-Deliberately dumb: it only knows how to turn the LED on/off and clean up
-after itself. Behaviour (blink patterns, expressions) is policy that belongs
-in whichever actor actually needs it, not baked into the device owner — e.g.
-the attention/face logic arriving in M8 will drive this via SetLed, the same
-way any future actor would.
-"""
+"""StatusActor — owns the status LED. Primitives only; patterns live elsewhere."""
 
 from __future__ import annotations
 
@@ -16,11 +9,6 @@ from robotd.messages import SetLed
 
 
 def command(action: str) -> SetLed | None:
-    """Translate a Command.action string into the message StatusActor understands.
-
-    Lives here, next to the actor that understands SetLed, rather than inside
-    CommandActor — so CommandActor never grows per-device knowledge.
-    """
     if action == "on":
         return SetLed(True)
     if action == "off":

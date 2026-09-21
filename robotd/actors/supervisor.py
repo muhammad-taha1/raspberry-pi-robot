@@ -1,6 +1,4 @@
-"""Starts and stops the actor tree. A plain lifecycle holder, not itself an
-actor — nothing needs to send it messages yet.
-"""
+"""Starts and stops the actor tree. Not itself an actor."""
 
 from __future__ import annotations
 
@@ -22,18 +20,15 @@ from .voice import command as say_command
 
 class Supervisor:
     def __init__(self, cfg: RobotConfig) -> None:
-        # Initialise external dependencies before starting actors. A missing voice
-        # model, unavailable output device, or broken model cache must fail cleanly
-        # at startup. The LED is the exception: it's the device most likely to be
-        # disconnected during bring-up, so a GPIO claim failure degrades to a
-        # warning (see open_led) instead of taking the whole daemon down.
+        # A missing voice model or output device fails at startup; the LED and
+        # chat model degrade to no-ops instead (open_led / open_chat).
         tts = PiperTts(cfg.voice_model_path)
         speaker = PyAudioSpeaker()
         self.status = StatusActor.start(led=open_led(cfg.pin("led")))
         self.voice = VoiceActor.start(tts=tts, speaker=speaker)
 
         registry = build_registry(status=self.status)
-        llm = NeedleLlm(registry.functions())
+        llm = NeedleLlm(registry.specs())
         chat = open_chat(cfg.chat_model_path)
         self.brain = BrainActor.start(llm=llm, registry=registry, voice=self.voice, chat=chat)
 

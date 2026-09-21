@@ -1,8 +1,4 @@
-"""Speak one line through Piper and the system-default output on the Pi.
-
-This is a hardware bring-up bench: it intentionally bypasses robotd's HAL and
-actors so model, PortAudio, and USB-speaker faults can be diagnosed directly.
-"""
+"""Speak one line through Piper and the system-default output on the Pi."""
 
 from __future__ import annotations
 
@@ -11,16 +7,15 @@ import argparse
 import pyaudio
 from piper import PiperVoice
 
-from robotd.config import DEFAULT_CONFIG_PATH, load
+from robotd.config import load
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH))
-    parser.add_argument("--text", default="hi i am raspberry pi, i am yourr personal assistant. ask me anything, i know everything, did you know the color of the sun is actually white? question mark kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkqwertyuiopasdfghjklzxcvbnmqwertyuioplkjhgfdsazxcvbnmhduafbiaggfdajgahjdbfgakkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrusssssssssssssssssssssssss")
+    parser.add_argument("--text", default="Good evening. Piper is working.")
     args = parser.parse_args()
 
-    voice = PiperVoice.load(str(load(args.config).voice_model_path))
+    voice = PiperVoice.load(str(load().voice_model_path))
     audio = pyaudio.PyAudio()
     stream = None
     try:

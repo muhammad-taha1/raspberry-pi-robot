@@ -1,10 +1,4 @@
-"""CommandActor — translates external Command requests into typed messages.
-
-Holds no device knowledge itself. It's handed a route table mapping device
-name -> (target actor, action-string -> message translator) at construction,
-so adding a device means adding a translator beside that device's own actor
-and one line in the route table here, never an `if device == ...` branch.
-"""
+"""CommandActor — routes external Command requests via a device->Route table."""
 
 from __future__ import annotations
 
@@ -13,9 +7,9 @@ from typing import Callable
 
 import pykka
 
-from robotd.messages import Command, CommandResult, RobotMessage
+from robotd.messages import Command, CommandResult
 
-Translator = Callable[[str], RobotMessage | None]
+Translator = Callable[[str], object | None]
 
 
 @dataclass(frozen=True)

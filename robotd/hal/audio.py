@@ -1,8 +1,4 @@
-"""Audio-output hardware seam.
-
-Piper produces raw PCM chunks; PyAudio sends those chunks to the operating
-system's default audio device. No utterance is written to disk.
-"""
+"""Audio-output seam. Piper produces raw PCM chunks; PyAudio plays them."""
 
 from __future__ import annotations
 
@@ -13,8 +9,6 @@ from typing import Protocol
 
 @dataclass(frozen=True)
 class AudioChunk:
-    """One raw PCM chunk together with the format needed to play it."""
-
     data: bytes
     sample_rate: int
     sample_width: int
@@ -27,8 +21,6 @@ class Speaker(Protocol):
 
 
 class PyAudioSpeaker:
-    """Plays raw PCM to PortAudio's default output device."""
-
     def __init__(self) -> None:
         # Deferred so laptop tests can import this module without PyAudio.
         import pyaudio

@@ -1,9 +1,4 @@
-"""Loads config/robot.toml — the robot's hardware and model configuration.
-
-Every device's pin is looked up through RobotConfig.pin(name) rather than
-hardcoded, so the bring-up scripts in scripts/ and the robotd package can
-never disagree about wiring.
-"""
+"""Loads config/robot.toml — the authoritative pin map and model paths."""
 
 from __future__ import annotations
 
@@ -29,7 +24,7 @@ def load(path: str | Path = DEFAULT_CONFIG_PATH) -> RobotConfig:
         data = tomllib.load(f)
 
     return RobotConfig(
-        pins=data.get("pins", {}),
+        pins=data["pins"],
         voice_model_path=Path(data["voice"]["model_path"]),
         chat_model_path=Path(data["chat"]["model_path"]),
     )

@@ -1,10 +1,5 @@
-"""Generic spoken phrases for BrainActor's static replies.
-
-Deliberately tool-agnostic — "Task completed", never "The light's on" — because
-dispatch is tell() (fire-and-forget): the brain knows a message reached the
-device actor, not that the device physically responded. Two consumers
-(robotd/actors/brain.py, robotd/models/chat.py's NullChat), so this earns
-being its own module rather than constants buried in one of them.
+"""Generic spoken phrases. Tool-agnostic — dispatch is tell(), so the brain
+knows a message reached the device actor, not that the device responded.
 """
 
 from __future__ import annotations

@@ -1,19 +1,9 @@
-"""Bring-up spike for M6's chat model: loads a GGUF directly via llama.cpp and
-prints reply text, decode tok/s, wall-clock latency, and peak RSS for a few
-canned prompts — the exact failures that motivated M6 (jokes, greetings).
+"""Bring-up bench for the chat GGUF — reply text, tok/s, latency, peak RSS.
 
-This is a hardware/model bring-up bench: it intentionally bypasses robotd's
-models/ and actors so install and inference-speed faults can be diagnosed
-directly, the same way brain_test.py does for Needle and voice_test.py does
-for Piper. Run this on the Pi before pointing config/robot.toml's [chat]
-section at a model — see docs/m6-research.md for the pass bar and for
-recording the winning numbers.
+    python scripts/chat_test.py --model ~/robot/models/LFM2.5-350M-Q4_K_M.gguf
 
-    python scripts/chat_test.py --model /home/taha/robot/models/LFM2.5-350M-Q4_K_M.gguf
-
-Settings below (temp, top_k, repeat_penalty) are from the LFM2.5 model card;
-if you're testing Qwen3-0.6B-GGUF instead, add "/no_think" to --system or its
-thinking-mode reasoning will be spoken instead of a short reply.
+MULTI_TURN_PROMPTS ends in "tell me a joke" to check whether unrelated earlier
+turns flatten a later reply — that's what set HISTORY_TURNS to 2.
 """
 
 from __future__ import annotations
@@ -21,8 +11,11 @@ from __future__ import annotations
 import argparse
 import resource
 import time
+from collections import deque
 
 from llama_cpp import Llama
+
+from robotd.models.chat import HISTORY_TURNS, NO_ACTION, PERSONA
 
 PROMPTS = [
     "tell me a joke",
@@ -31,59 +24,68 @@ PROMPTS = [
     "tell me about yourself",
 ]
 
-# Kept identical to robotd/models/chat.py's PERSONA so this spike tests the
-# prompt that actually ships, not a stand-in.
-SYSTEM = (
-    "You are Alfred, a small desk companion robot with the manner of a "
-    "polite, dutiful medieval English knight — courteous and a little "
-    "formal, occasionally 'milord'/'miss', but always clear, modern, plain "
-    "English. Never full archaic language (no 'thee'/'thou'/'verily'). "
-    "Answer in one or two short spoken sentences. Never output JSON, code, "
-    "or invent tool names — just talk. You can only talk; you cannot "
-    "perform actions or remember things for the user, so don't claim to."
-)
+MULTI_TURN_PROMPTS = [
+    "its dark",
+    "can you brighten the room?",
+    "turn on the light",
+    "tell me a joke",
+]
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True)
-    parser.add_argument("--system", default=SYSTEM)
-    parser.add_argument("--n-ctx", type=int, default=1024)
-    parser.add_argument("--n-threads", type=int, default=4)
-    parser.add_argument("--max-tokens", type=int, default=80)
     args = parser.parse_args()
 
     print(f"loading {args.model} ...")
     load_start = time.monotonic()
-    llm = Llama(
-        model_path=args.model, n_ctx=args.n_ctx, n_threads=args.n_threads, verbose=False
-    )
+    llm = Llama(model_path=args.model, n_ctx=1024, n_threads=4, verbose=False)
     print(f"loaded in {time.monotonic() - load_start:.2f}s")
 
-    for prompt in PROMPTS:
+    def ask(messages: list[dict]) -> tuple[str, float, int]:
         start = time.monotonic()
         result = llm.create_chat_completion(
-            messages=[
-                {"role": "system", "content": args.system},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=args.max_tokens,
+            messages=messages,
+            max_tokens=80,
             temperature=0.1,
             top_k=50,
             repeat_penalty=1.05,
         )
         elapsed = time.monotonic() - start
-
         reply = result["choices"][0]["message"]["content"].strip()
-        usage = result.get("usage", {})
-        completion_tokens = usage.get("completion_tokens", 0)
-        decode_tps = completion_tokens / elapsed if elapsed > 0 else 0.0
+        return reply, elapsed, result.get("usage", {}).get("completion_tokens", 0)
+
+    print("--- cold prompts (no history) ---")
+    for prompt in PROMPTS:
+        reply, elapsed, tokens = ask(
+            [
+                {"role": "system", "content": PERSONA},
+                {"role": "system", "content": NO_ACTION},
+                {"role": "user", "content": prompt},
+            ]
+        )
         peak_rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
 
         print(f"\nprompt: {prompt!r}")
         print(f"reply: {reply!r}")
-        print(f"tokens: {completion_tokens}  latency: {elapsed:.2f}s  decode_tps: {decode_tps:.1f}")
+        print(f"tokens: {tokens}  latency: {elapsed:.2f}s  tps: {tokens / elapsed:.1f}")
         print(f"peak_rss_mb: {peak_rss_mb:.1f}")
+
+    print("\n--- multi-turn sequence (shared history window) ---")
+    history: deque[tuple[str, str]] = deque(maxlen=HISTORY_TURNS)
+    for prompt in MULTI_TURN_PROMPTS:
+        messages = [{"role": "system", "content": PERSONA}]
+        for user, assistant in history:
+            messages.append({"role": "user", "content": user})
+            messages.append({"role": "assistant", "content": assistant})
+        messages.append({"role": "system", "content": NO_ACTION})
+        messages.append({"role": "user", "content": prompt})
+
+        reply, elapsed, tokens = ask(messages)
+        history.append((prompt, reply))
+
+        print(f"\nyou: {prompt!r}")
+        print(f"reply: {reply!r}  ({tokens} tokens, {elapsed:.2f}s)")
 
 
 if __name__ == "__main__":

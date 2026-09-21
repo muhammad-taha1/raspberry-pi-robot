@@ -14,8 +14,6 @@ class TextToSpeech(Protocol):
 
 
 class PiperTts:
-    """A Piper voice loaded once and streamed in raw PCM chunks."""
-
     def __init__(self, model_path: str | Path) -> None:
         # Deferred so laptop tests can import this module without Piper.
         from piper import PiperVoice

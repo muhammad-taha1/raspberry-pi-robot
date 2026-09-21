@@ -1,11 +1,6 @@
 """ToolRegistry — how a device becomes something the brain can ask for.
 
-Without this, BrainActor would need to know every device by name. Instead it
-knows zero devices: build_registry() wires each tool to a `tell()` into the
-actor that owns the device, so dispatch never blocks and adding hardware
-never touches BrainActor. A tool's name and description come from the
-function itself (name, docstring, type hints) — that's the schema Needle
-reads, so there's no parallel description string to drift out of sync.
+A tool's name, docstring and type hints *are* the schema Needle reads.
 """
 
 from __future__ import annotations
@@ -16,20 +11,27 @@ from collections.abc import Callable
 import pykka
 
 from robotd.messages import SetLed
-from robotd.models.llm import ToolCall
+from robotd.models.llm import ToolCall, ToolSpec
 
 logger = logging.getLogger(__name__)
+
+LED_TRIGGERS = (
+    r"\b(turn|switch|flick|put)\b.*\b(on|off)\b",
+    r"\b(light|lights|lamp|led)\b.*\b(on|off)\b",
+)
 
 
 class ToolRegistry:
     def __init__(self) -> None:
         self._tools: dict[str, Callable] = {}
+        self._triggers: dict[str, tuple[str, ...]] = {}
 
-    def add_action(self, fn: Callable[..., None]) -> None:
+    def add_action(self, fn: Callable[..., None], triggers: tuple[str, ...] = ()) -> None:
         self._tools[fn.__name__] = fn
+        self._triggers[fn.__name__] = triggers
 
-    def functions(self) -> list[Callable]:
-        return list(self._tools.values())
+    def specs(self) -> list[ToolSpec]:
+        return [ToolSpec(fn, self._triggers[name]) for name, fn in self._tools.items()]
 
     def dispatch(self, call: ToolCall) -> bool:
         fn = self._tools.get(call.name)
@@ -48,8 +50,14 @@ def build_registry(status: pykka.ActorRef) -> ToolRegistry:
     registry = ToolRegistry()
 
     def set_led(on: bool) -> None:
-        """Turn the robot's status LED on or off."""
+        """Turn the robot's status LED on or off.
+
+        Also known as the light, the lamp, or the LED.
+
+        Args:
+            on: True to switch the LED on, False to switch it off.
+        """
         status.tell(SetLed(on))
 
-    registry.add_action(set_led)
+    registry.add_action(set_led, triggers=LED_TRIGGERS)
     return registry

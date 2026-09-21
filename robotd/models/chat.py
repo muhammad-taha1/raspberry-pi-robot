@@ -1,12 +1,4 @@
-"""Chat model seam — the robot's mouth for anything Needle can't serve as a
-tool call (jokes, greetings, small talk). Separate from LlmProvider on
-purpose: Needle never generates prose, so this is a second protocol rather
-than a resurrected Completion.text.
-
-Mirrors robotd/models/tts.py's shape (protocol + one real impl, deferred
-import) and robotd/hal/leds.py's open_led() (degrade to a no-op with a
-logged warning rather than crash the daemon).
-"""
+"""Chat seam — the robot's mouth for anything Needle can't serve as a tool call."""
 
 from __future__ import annotations
 
@@ -19,15 +11,9 @@ from robotd import phrases
 
 logger = logging.getLogger(__name__)
 
-# Deliberately says nothing about specific devices/tools — Needle (not this
-# model) decides which tools run, and a hardcoded device list here would
-# need editing every time tools.py's registry grows. "You can only talk" is
-# the generic, self-maintaining substitute: it rules out claiming to *do*
-# things without naming what those things are.
-#
-# Personality is deliberately light — "polite and old-fashioned", not full
-# thee/thou archaism. A 350M model pushed into heavy period language tends
-# to get incoherent, and Piper still has to speak whatever comes out clearly.
+# Says nothing about specific devices — Needle decides which tools run, and a
+# hardcoded list here would need editing every time tools.py grows. Personality
+# stays light: a 350M model pushed into heavy period language gets incoherent.
 PERSONA = (
     "You are Alfred, a small desk companion robot with the manner of a "
     "polite, dutiful medieval English knight — courteous and a little "
@@ -38,7 +24,14 @@ PERSONA = (
     "perform actions or remember things for the user, so don't claim to."
 )
 
-HISTORY_TURNS = 4
+# Appended right before the user turn — small models weight recency, and
+# PERSONA's "you cannot perform actions" gets ignored 60+ tokens away from a
+# direct imperative. Always true here: reply() is only reached when Needle
+# dispatched nothing.
+NO_ACTION = "You just did nothing. If you can't do what's asked, say so plainly."
+
+# A longer window carried unrelated LED small-talk into "tell me a joke".
+HISTORY_TURNS = 2
 
 
 class ChatProvider(Protocol):
@@ -46,14 +39,10 @@ class ChatProvider(Protocol):
 
 
 class LlamaCppChat:
-    """A small local GGUF, loaded once and reused. Owns its own short
-    conversation window, the same way NeedleLlm owns its 256-token window —
-    BrainActor still holds no history.
-    """
+    """A small local GGUF, loaded once. Owns its own short conversation window."""
 
     def __init__(self, model_path: str | Path) -> None:
-        # Deferred so laptop tests can import this module without a compiled
-        # llama.cpp or any GGUF on disk.
+        # Deferred so laptop tests can import this module without llama.cpp.
         from llama_cpp import Llama
 
         self._llm = Llama(model_path=str(model_path), n_ctx=1024, n_threads=4, verbose=False)
@@ -64,6 +53,7 @@ class LlamaCppChat:
         for user, assistant in self._history:
             messages.append({"role": "user", "content": user})
             messages.append({"role": "assistant", "content": assistant})
+        messages.append({"role": "system", "content": NO_ACTION})
         messages.append({"role": "user", "content": text})
 
         result = self._llm.create_chat_completion(
@@ -79,24 +69,15 @@ class LlamaCppChat:
 
 
 class NullChat:
-    """The real no-weights behaviour — not a test double. Used when the
-    configured GGUF is missing so the daemon keeps running with chat
-    unavailable, instead of crashing at startup.
-    """
+    """Real no-weights behaviour, not a test double — used when the GGUF is missing."""
 
     def reply(self, text: str) -> str:
         return phrases.pick(phrases.UNSURE)
 
 
 def open_chat(model_path: str | Path) -> ChatProvider:
-    """Load the chat model, falling back to NullChat with a warning if the
-    GGUF is missing or fails to load.
-    """
-    if not Path(model_path).exists():
-        logger.warning("Chat model %s not found; chat replies unavailable", model_path)
-        return NullChat()
     try:
         return LlamaCppChat(model_path)
     except Exception:
-        logger.warning("Chat model %s failed to load; chat replies unavailable", model_path, exc_info=True)
+        logger.warning("Chat model %s unavailable; chat replies disabled", model_path, exc_info=True)
         return NullChat()

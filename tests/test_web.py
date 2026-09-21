@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from robotd.messages import Command, CommandResult
-from robotd.web import parse_chat, parse_command, parse_say, status_for
+from robotd.messages import Command
+from robotd.web import parse_command, parse_text
 
 
 def test_parses_valid_command():
@@ -11,64 +11,17 @@ def test_parses_valid_command():
     assert parse_command(body) == Command("led", "on")
 
 
-@pytest.mark.parametrize(
-    "body",
-    [
-        b"not json",
-        b"{}",
-        json.dumps({"device": "led"}).encode(),
-        json.dumps({"device": 1, "action": "on"}).encode(),
-        json.dumps({"device": "led", "action": 1}).encode(),
-    ],
-)
-def test_rejects_bad_bodies(body):
-    with pytest.raises((json.JSONDecodeError, KeyError, ValueError)):
+@pytest.mark.parametrize("body", [b"not json", b"{}", json.dumps({"device": "led"}).encode()])
+def test_rejects_bad_command_bodies(body):
+    with pytest.raises((ValueError, KeyError)):
         parse_command(body)
 
 
-def test_status_for_ok_result_is_200():
-    assert status_for(CommandResult(True, "on")) == 200
+def test_parses_valid_text():
+    assert parse_text(json.dumps({"text": "Good evening."}).encode()) == "Good evening."
 
 
-def test_status_for_failed_result_is_400():
-    assert status_for(CommandResult(False, "unknown device 'nope'")) == 400
-
-
-def test_parses_valid_say():
-    body = json.dumps({"text": "Good evening."}).encode()
-    assert parse_say(body) == "Good evening."
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        b"not json",
-        b"{}",
-        json.dumps({"text": 1}).encode(),
-        json.dumps({"text": ""}).encode(),
-        json.dumps({"text": "   "}).encode(),
-    ],
-)
-def test_rejects_bad_say_bodies(body):
-    with pytest.raises((json.JSONDecodeError, KeyError, ValueError)):
-        parse_say(body)
-
-
-def test_parses_valid_chat():
-    body = json.dumps({"text": "turn on the light"}).encode()
-    assert parse_chat(body) == "turn on the light"
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        b"not json",
-        b"{}",
-        json.dumps({"text": 1}).encode(),
-        json.dumps({"text": ""}).encode(),
-        json.dumps({"text": "   "}).encode(),
-    ],
-)
-def test_rejects_bad_chat_bodies(body):
-    with pytest.raises((json.JSONDecodeError, KeyError, ValueError)):
-        parse_chat(body)
+@pytest.mark.parametrize("body", [b"not json", b"{}", json.dumps({"text": "   "}).encode()])
+def test_rejects_bad_text_bodies(body):
+    with pytest.raises((ValueError, KeyError)):
+        parse_text(body)

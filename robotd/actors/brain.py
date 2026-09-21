@@ -1,12 +1,7 @@
-"""BrainActor — turns a Transcript into tool calls plus a spoken reply. Holds
-no device references (the registry has those) and no conversation history
-(NeedleLlm and the chat model each own their own).
+"""BrainActor — Transcript in, tool calls plus a spoken reply out.
 
-Needle 3 never generates prose, so a Transcript that produces no tool call
-(a joke, a greeting, small talk) is not a failure — it is the normal signal
-to hand the utterance to the chat model instead. Generation only happens on
-that path: a dispatched tool call gets a generic static acknowledgement, so
-device commands never wait on inference.
+Needle never generates prose, so a Transcript producing no tool call is not a
+failure — it's the signal to hand the utterance to the chat model instead.
 """
 
 from __future__ import annotations
@@ -49,18 +44,16 @@ class BrainActor(pykka.ThreadingActor):
         )
 
         if not result.ok:
-            # Needle itself failed — not a cue to treat the utterance as small talk.
             spoken = phrases.pick(phrases.FAILED)
         elif result.tool_calls:
+            # List, not a generator: all() must not short-circuit past a call.
             all_dispatched = all([self._registry.dispatch(c) for c in result.tool_calls])
             spoken = phrases.pick(phrases.ACK if all_dispatched else phrases.FAILED)
         else:
             try:
-                spoken = self._chat.reply(message.text).strip()
+                spoken = self._chat.reply(message.text).strip() or phrases.pick(phrases.UNSURE)
             except Exception:
                 logger.exception("chat failed")
-                spoken = ""
-            if not spoken:
                 spoken = phrases.pick(phrases.UNSURE)
 
         self._voice.tell(Speak(spoken))

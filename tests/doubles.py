@@ -1,17 +1,22 @@
-"""Test doubles implementing robotd/hal and robotd/models protocols. Never
-shipped in robotd/."""
+"""Test doubles for robotd/hal and robotd/models protocols. Never shipped."""
 
 from __future__ import annotations
 
+import time
 from collections.abc import Iterable
 
 from robotd.hal.audio import AudioChunk
 from robotd.models.llm import Completion
 
 
+def wait_until(predicate, timeout: float = 1.0) -> None:
+    """Wait for a tell()'d message to land, without a fixed sleep."""
+    deadline = time.monotonic() + timeout
+    while not predicate() and time.monotonic() < deadline:
+        time.sleep(0.005)
+
+
 class RecordingLed:
-    """Implements Led. Records every call for assertion."""
-
     def __init__(self) -> None:
         self.calls: list[str] = []
 
@@ -25,26 +30,15 @@ class RecordingLed:
         self.calls.append("close")
 
 
-class RaisingLed:
-    """Implements Led. Raises on on() — proves shutdown still turns it off and closes it."""
-
-    def __init__(self) -> None:
-        self.calls: list[str] = []
+class RaisingLed(RecordingLed):
+    """on() raises — proves shutdown still turns it off and closes it."""
 
     def on(self) -> None:
-        self.calls.append("on")
+        super().on()
         raise RuntimeError("led hardware fault")
-
-    def off(self) -> None:
-        self.calls.append("off")
-
-    def close(self) -> None:
-        self.calls.append("close")
 
 
 class RecordingTts:
-    """Implements TextToSpeech. Emits one identifiable chunk per request."""
-
     def __init__(self) -> None:
         self.texts: list[str] = []
 
@@ -54,8 +48,6 @@ class RecordingTts:
 
 
 class RecordingSpeaker:
-    """Implements Speaker. Consumes each streamed utterance for assertion."""
-
     def __init__(self) -> None:
         self.utterances: list[bytes] = []
         self.closed = False
@@ -68,9 +60,6 @@ class RecordingSpeaker:
 
 
 class ScriptedLlm:
-    """Implements LlmProvider. Returns queued Completions, records what it
-    was asked."""
-
     def __init__(self, completions: list[Completion]) -> None:
         self._completions = list(completions)
         self.texts: list[str] = []
@@ -81,9 +70,6 @@ class ScriptedLlm:
 
 
 class ScriptedChat:
-    """Implements ChatProvider. Returns queued strings, records what it was
-    asked — proves chat is (or isn't) consulted for a given Transcript."""
-
     def __init__(self, replies: list[str]) -> None:
         self._replies = list(replies)
         self.texts: list[str] = []
@@ -94,8 +80,5 @@ class ScriptedChat:
 
 
 class RaisingChat:
-    """Implements ChatProvider. Raises on reply() — proves BrainActor speaks
-    an UNSURE phrase instead of crashing when chat fails."""
-
     def reply(self, text: str) -> str:
         raise RuntimeError("chat model fault")
