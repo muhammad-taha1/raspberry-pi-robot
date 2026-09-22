@@ -81,6 +81,9 @@ class _Handler(BaseHTTPRequestHandler):
         except pykka.Timeout:
             self._respond(504, {"ok": False, "detail": "brain did not reply in time"})
             return
+        except pykka.ActorDeadError:
+            self._respond(503, {"ok": False, "detail": "brain actor is not running"})
+            return
 
         self._respond(
             200,

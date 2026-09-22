@@ -59,6 +59,18 @@ class RecordingSpeaker:
         self.closed = True
 
 
+class RaisingSpeaker(RecordingSpeaker):
+    """play() and close() both raise — proves the actor survives a bad device."""
+
+    def play(self, chunks: Iterable[AudioChunk]) -> None:
+        super().play(chunks)
+        raise RuntimeError("device hardware fault")
+
+    def close(self) -> None:
+        super().close()
+        raise RuntimeError("device close fault")
+
+
 class ScriptedLlm:
     def __init__(self, completions: list[Completion]) -> None:
         self._completions = list(completions)

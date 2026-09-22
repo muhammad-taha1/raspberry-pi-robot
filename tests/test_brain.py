@@ -125,6 +125,20 @@ def test_blank_chat_reply_speaks_unsure():
     assert reply.text in phrases.UNSURE
 
 
+def test_dead_voice_actor_does_not_break_the_reply():
+    completions = [Completion([], "off topic", 0.05)]
+    chat = ScriptedChat(["Here's a joke."])
+    brain, light, voice, led, tts, chat = start(completions, chat=chat)
+    voice.stop()
+    try:
+        reply = brain.ask(Transcript("tell me a joke"))
+    finally:
+        brain.stop()
+        light.stop()
+
+    assert reply.text == "Here's a joke."
+
+
 def test_needle_failure_speaks_failed_and_chat_is_never_consulted():
     completions = [Completion([], "", None, ok=False, error="model crashed")]
     brain, light, voice, led, tts, chat = start(completions)

@@ -56,7 +56,11 @@ class BrainActor(pykka.ThreadingActor):
                 logger.exception("chat failed")
                 spoken = phrases.pick(phrases.UNSURE)
 
-        self._voice.tell(Speak(spoken))
+        try:
+            self._voice.tell(Speak(spoken))
+        except pykka.ActorDeadError:
+            logger.error("voice actor is dead, replying without speech")
+
         return ChatReply(
             text=spoken,
             tool_calls=result.tool_calls,
