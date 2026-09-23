@@ -1,8 +1,8 @@
 from robotd import phrases
-from robotd.actors.brain import BrainActor
+from robotd.actors.brain import STATE_TURNS, BrainActor
 from robotd.actors.light import LightActor
 from robotd.actors.voice import VoiceActor
-from robotd.messages import Transcript
+from robotd.messages import GetState, Transcript, Turn
 from robotd.models.llm import Completion, ToolCall
 from robotd.tools import build_registry
 
@@ -150,3 +150,41 @@ def test_needle_failure_speaks_failed_and_chat_is_never_consulted():
     assert reply.text in phrases.FAILED
     assert chat.texts == []
     assert led.calls == ["off", "close"]
+
+
+def test_get_state_before_any_transcript_is_empty():
+    brain, light, voice, led, tts, chat = start([])
+    try:
+        turns = brain.ask(GetState())
+    finally:
+        stop(brain, light, voice)
+
+    assert turns == []
+
+
+def test_get_state_returns_turns_in_order():
+    completions = [Completion([ToolCall("set_led", {"turn_on": True})], "reasoning", 0.9)]
+    brain, light, voice, led, tts, chat = start(completions)
+    try:
+        reply = brain.ask(Transcript("turn on the light"))
+        turns = brain.ask(GetState())
+    finally:
+        stop(brain, light, voice)
+
+    assert turns == [Turn(heard="turn on the light", spoken=reply.text)]
+
+
+def test_get_state_caps_at_state_turns():
+    completions = [Completion([], "off topic", 0.05) for _ in range(STATE_TURNS + 2)]
+    chat = ScriptedChat([f"reply {i}" for i in range(STATE_TURNS + 2)])
+    brain, light, voice, led, tts, chat = start(completions, chat=chat)
+    try:
+        for i in range(STATE_TURNS + 2):
+            brain.ask(Transcript(f"turn {i}"))
+        turns = brain.ask(GetState())
+    finally:
+        stop(brain, light, voice)
+
+    assert len(turns) == STATE_TURNS
+    assert turns[0].heard == "turn 2"  # the oldest two fell off
+    assert turns[-1].heard == f"turn {STATE_TURNS + 1}"

@@ -9,12 +9,15 @@ from threading import Thread
 
 import pykka
 
-from robotd.messages import Speak, Transcript
+from robotd.messages import GetState, Speak, Transcript, Turn
 
 HTTP_PORT = 8080
 STATIC_DIR = Path(__file__).parent / "static"
 
 CHAT_TIMEOUT = 30
+# Short: GET /state shares BrainActor's mailbox, so a poll landing mid-inference
+# should fail fast with an honest 503 rather than hang the status page.
+STATE_TIMEOUT = 1
 
 
 def parse_text(body: bytes) -> str:
@@ -22,6 +25,10 @@ def parse_text(body: bytes) -> str:
     if not text.strip():
         raise ValueError("text must not be empty")
     return text
+
+
+def state_body(turns: list[Turn]) -> dict:
+    return {"ok": True, "turns": [{"heard": t.heard, "spoken": t.spoken} for t in turns]}
 
 
 class RobotServer(ThreadingHTTPServer):
@@ -37,6 +44,9 @@ class _Handler(BaseHTTPRequestHandler):
     server: RobotServer
 
     def do_GET(self) -> None:
+        if self.path == "/state":
+            self._handle_state()
+            return
         if self.path != "/":
             self._respond(404, {"ok": False, "detail": "not found"})
             return
@@ -47,6 +57,18 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(html)))
         self.end_headers()
         self.wfile.write(html)
+
+    def _handle_state(self) -> None:
+        try:
+            turns = self.server.brain.ask(GetState(), timeout=STATE_TIMEOUT)
+        except pykka.Timeout:
+            self._respond(503, {"ok": False, "detail": "busy"})
+            return
+        except pykka.ActorDeadError:
+            self._respond(503, {"ok": False, "detail": "brain actor is not running"})
+            return
+
+        self._respond(200, state_body(turns))
 
     def do_POST(self) -> None:
         if self.path == "/say":

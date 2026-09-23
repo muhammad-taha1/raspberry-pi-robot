@@ -48,6 +48,11 @@
 </head>
 <body>
   <h1>robotd</h1>
+  <div id="stateLog"></div>
+
+  <hr>
+
+  <h1>say</h1>
   <textarea id="text" rows="3" placeholder="Say something..."></textarea>
   <br>
   <button id="say">Say it</button>
@@ -62,6 +67,25 @@
   <button id="send">Send</button>
 
   <script>
+    const stateLog = document.getElementById("stateLog");
+
+    async function pollState() {
+      try {
+        const res = await fetch("/state");
+        const body = await res.json();
+        if (!body.ok) return;
+        stateLog.innerHTML = body.turns.length
+          ? body.turns
+              .map((t) => `<div class="msg"><span class="who">heard:</span> ${t.heard}<div class="meta">said: ${t.spoken}</div></div>`)
+              .join("")
+          : `<div class="msg meta">Nothing heard yet — hold the button and speak.</div>`;
+      } catch (err) {
+        // A missed poll isn't worth surfacing; the next one will catch up.
+      }
+    }
+    pollState();
+    setInterval(pollState, 3000);
+
     const text = document.getElementById("text");
     const say = document.getElementById("say");
     const result = document.getElementById("result");
