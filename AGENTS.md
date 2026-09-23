@@ -70,8 +70,10 @@ run `pinout` on the Pi.
 3. To let the brain use it, register it in `tools.py`'s `build_registry()` — a small function
    that `tell()`s the actor, passed to `registry.add_action()`. The function's name and
    docstring *are* the schema Needle reads; use a Google-style `Args:` block, which drives
-   Needle's per-argument grounding. Pass `triggers=(...)` (case-insensitive regexes) for
-   phrasing the tool must never miss regardless of confidence — check
+   Needle's per-argument grounding. Pass `triggers=(...)` (case-insensitive regexes) to make
+   those phrasings the tool's *only* way to fire — it then fires on a match regardless of
+   confidence, and never without one (Needle has called `set_led` for "how are you?" at
+   confidence 1.0). Every tool that actuates hardware should declare triggers — check
    `docs/open-questions.md`'s trigger-overlap entry first, since two tools matching the same
    utterance is undefined. Don't add a `say`-style tool; prose is the chat model's job. This
    registry entry is the only wire-in a device needs — there's no second, HTTP-facing route

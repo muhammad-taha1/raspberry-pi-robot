@@ -50,9 +50,9 @@ def build_registry(light: pykka.ActorRef) -> ToolRegistry:
     registry = ToolRegistry()
 
     def set_led(turn_on: bool) -> None:
-        """Turn the robot's status LED on or off.
+        """Turn the desk light on or off.
 
-        Also known as the light, the lamp, or the LED.
+        Also known as the lamp or the LED.
 
         Args:
             turn_on: True to switch the LED on, False to switch it off.

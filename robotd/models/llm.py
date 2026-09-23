@@ -21,6 +21,18 @@ MAX_TURNS = 3
 IDLE_RESET_SECONDS = 300
 
 
+def hold_untriggered(
+    calls: list[ToolCall], suppressed: list[ToolCall], untriggered: set[str]
+) -> tuple[list[ToolCall], list[ToolCall]]:
+    """Hold back calls to tools that declare triggers when none matched. Needle
+    has called set_led for "how are you?" at confidence 1.0 and grounded, so no
+    score can gate a hardware tool — its trigger phrases are the only permission.
+    """
+    kept = [c for c in calls if c.name not in untriggered]
+    held = [c for c in calls if c.name in untriggered]
+    return kept, suppressed + held
+
+
 def apply_floor(
     calls: list[ToolCall],
     suppressed: list[ToolCall],
@@ -48,7 +60,8 @@ class ToolCall:
 @dataclass(frozen=True)
 class ToolSpec:
     """A tool for a provider to declare: the function (its name/docstring/hints
-    are the schema) plus trigger regexes that force a call regardless of confidence.
+    are the schema) plus trigger regexes. A tool with triggers fires only when
+    one matches, and then regardless of confidence.
     """
 
     fn: object
@@ -106,12 +119,14 @@ class NeedleLlm:
             for call in result.get("suppressed_calls", [])
         ]
 
-        exempt = {
+        triggered = {
             spec.fn.__name__
             for spec in self._specs
             if any(re.search(pattern, text, re.IGNORECASE) for pattern in spec.triggers)
         }
-        calls, suppressed = apply_floor(calls, suppressed, result["confidence"], exempt)
+        untriggered = {spec.fn.__name__ for spec in self._specs if spec.triggers} - triggered
+        calls, suppressed = hold_untriggered(calls, suppressed, untriggered)
+        calls, suppressed = apply_floor(calls, suppressed, result["confidence"], triggered)
 
         return Completion(
             tool_calls=calls,
