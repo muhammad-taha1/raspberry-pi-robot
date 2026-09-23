@@ -1,3 +1,4 @@
+import logging
 import sys
 from time import sleep
 
@@ -7,6 +8,8 @@ from robotd.web import HTTP_PORT, serve
 
 
 def main() -> int:
+    # journald adds its own timestamps.
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     cfg = load(DEFAULT_CONFIG_PATH)
     with Supervisor(cfg) as robot:
         server = serve(robot.voice, robot.brain)

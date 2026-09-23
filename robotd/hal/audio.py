@@ -64,6 +64,9 @@ CHUNK_FRAMES = 1024
 # which converts from whatever the USB card actually supports — opening its raw
 # hw: device instead fails with paInvalidSampleRate.
 MIC_SAMPLE_RATE = 16_000
+# Keep recording briefly after while_true ends: people release push-to-talk on
+# their last syllable, and Whisper mangles a clipped final word.
+RELEASE_TAIL_SECONDS = 0.3
 
 
 class PyAudioMicrophone:
@@ -80,6 +83,7 @@ class PyAudioMicrophone:
     def record(self, while_true: Callable[[], bool]) -> AudioChunk:
         import time
 
+        opening = time.monotonic()
         stream = self._pyaudio.open(
             format=self._pyaudio.get_format_from_width(2),
             channels=1,
@@ -87,14 +91,23 @@ class PyAudioMicrophone:
             input=True,
             frames_per_buffer=CHUNK_FRAMES,
         )
+        opened = time.monotonic()
         frames: list[bytes] = []
         try:
-            deadline = time.monotonic() + self._max_seconds
+            deadline = opened + self._max_seconds
             while while_true() and time.monotonic() < deadline:
                 frames.append(stream.read(CHUNK_FRAMES, exception_on_overflow=False))
+            tail_frames = int(MIC_SAMPLE_RATE * RELEASE_TAIL_SECONDS)
+            frames.append(stream.read(tail_frames, exception_on_overflow=False))
         finally:
             stream.stop_stream()
             stream.close()
+
+        logger.info(
+            "recorded %.2fs (stream took %.0f ms to open)",
+            sum(len(f) for f in frames) / 2 / MIC_SAMPLE_RATE,
+            (opened - opening) * 1000,
+        )
 
         return AudioChunk(
             data=b"".join(frames), sample_rate=MIC_SAMPLE_RATE, sample_width=2, channels=1
