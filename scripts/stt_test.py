@@ -13,7 +13,6 @@ import argparse
 import resource
 import time
 
-from robotd.config import load
 from robotd.hal.audio import PyAudioMicrophone
 from robotd.models.stt import WhisperStt
 
@@ -24,10 +23,9 @@ def main() -> None:
     parser.add_argument("--models", nargs="+", default=["tiny.en", "base.en"])
     args = parser.parse_args()
 
-    device_name = load().mic_device_name
-    mic = PyAudioMicrophone(device_name)
+    mic = PyAudioMicrophone()
     try:
-        print(f"Recording {args.seconds}s from '{device_name}' — speak now...")
+        print(f"Recording {args.seconds}s from the default input — speak now...")
         deadline = time.monotonic() + args.seconds
         audio = mic.record(lambda: time.monotonic() < deadline)
         print(f"Captured {len(audio.data)} bytes at {audio.sample_rate} Hz")

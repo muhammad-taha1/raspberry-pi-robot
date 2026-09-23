@@ -35,7 +35,7 @@ class Supervisor:
         chat = open_chat(cfg.chat_model_path)
         self.brain = BrainActor.start(llm=llm, registry=registry, voice=self.voice, chat=chat)
 
-        mic = PyAudioMicrophone(cfg.mic_device_name)
+        mic = PyAudioMicrophone()
         stt = WhisperStt(cfg.stt_model)
         self.hearing = HearingActor.start(
             mic=mic, stt=stt, brain=self.brain, button=open_button(cfg.pin("button"))

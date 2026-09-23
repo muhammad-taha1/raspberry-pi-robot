@@ -8,22 +8,18 @@ from __future__ import annotations
 
 import subprocess
 
-from robotd.config import load
-
-SAMPLE_RATE = 44_100
+SAMPLE_RATE = 16_000
 DURATION_SECONDS = 3
 
 
 def main() -> None:
-    card = load().mic_device_name
-    device = f"plughw:CARD={card}"
-
-    print(f"Recording {DURATION_SECONDS}s from {device} — speak now...")
+    # ALSA's default device, pinned to the USB card by /etc/asound.conf — the
+    # same path PyAudioMicrophone takes, so a pass here means the daemon's mic works.
+    print(f"Recording {DURATION_SECONDS}s from the ALSA default input — speak now...")
     recording = subprocess.run(
         [
             "arecord",
             "--quiet",
-            f"--device={device}",
             "--format=S16_LE",
             f"--rate={SAMPLE_RATE}",
             "--channels=1",

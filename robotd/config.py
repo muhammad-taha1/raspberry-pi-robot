@@ -14,7 +14,6 @@ class RobotConfig:
     pins: dict[str, int]
     voice_model_path: Path
     chat_model_path: Path
-    mic_device_name: str
     stt_model: str
 
     def pin(self, name: str) -> int:
@@ -29,6 +28,5 @@ def load(path: str | Path = DEFAULT_CONFIG_PATH) -> RobotConfig:
         pins=data["pins"],
         voice_model_path=Path(data["voice"]["model_path"]),
         chat_model_path=Path(data["chat"]["model_path"]),
-        mic_device_name=data["mic"]["device_name"],
         stt_model=data["stt"]["model"],
     )

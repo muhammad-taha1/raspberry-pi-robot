@@ -18,9 +18,6 @@ def test_loads_pins(tmp_path):
             [chat]
             model_path = "/opt/robot/models/chat.gguf"
 
-            [mic]
-            device_name = "Device"
-
             [stt]
             model = "tiny.en"
             """
@@ -33,7 +30,6 @@ def test_loads_pins(tmp_path):
     assert cfg.pin("motor_in1") == 17
     assert cfg.voice_model_path.name == "alan.onnx"
     assert cfg.chat_model_path.name == "chat.gguf"
-    assert cfg.mic_device_name == "Device"
     assert cfg.stt_model == "tiny.en"
 
 

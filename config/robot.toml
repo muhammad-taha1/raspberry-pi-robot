@@ -25,12 +25,6 @@ model_path = "/home/taha/robot/voices/en_GB-alan-medium.onnx"
 # rather than crashing the daemon — see robotd/models/chat.py.
 model_path = "/home/taha/robot/models/LFM2.5-350M-Q4_K_M.gguf"
 
-[mic]
-# ALSA/PortAudio card *name*, matched as a substring — USB card numbers are not
-# stable across reboots. `arecord -l` on the Pi shows: card 2: Device [USB
-# Composite Device] — the same USB unit as the speaker.
-device_name = "Device"
-
 [stt]
 # faster-whisper model name, not a path: weights are fetched from Hugging Face
 # and cached on first run, same as Needle. Try base.en if tiny.en mishears.
