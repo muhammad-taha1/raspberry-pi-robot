@@ -46,7 +46,9 @@ class BrainActor(pykka.ThreadingActor):
 
         result = self._llm.complete(message.text)
         logger.info(
-            "ok=%s confidence=%s reasoning=%s suppressed=%s ungrounded=%s",
+            "heard=%r calls=%s ok=%s confidence=%s reasoning=%s suppressed=%s ungrounded=%s",
+            message.text,
+            result.tool_calls,
             result.ok,
             result.confidence,
             result.reasoning,

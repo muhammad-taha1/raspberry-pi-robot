@@ -10,8 +10,11 @@ picked from real numbers on this board. Same role as chat_test.py / brain_test.p
 from __future__ import annotations
 
 import argparse
+import array
+import math
 import resource
 import time
+import wave
 
 from robotd.hal.audio import PyAudioMicrophone
 from robotd.models.stt import WhisperStt
@@ -21,6 +24,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--seconds", type=float, default=4.0)
     parser.add_argument("--models", nargs="+", default=["tiny.en", "base.en"])
+    parser.add_argument("--save", default="stt_test.wav")
     args = parser.parse_args()
 
     mic = PyAudioMicrophone()
@@ -31,6 +35,19 @@ def main() -> None:
         print(f"Captured {len(audio.data)} bytes at {audio.sample_rate} Hz")
     finally:
         mic.close()
+
+    samples = array.array("h", audio.data)
+    peak = max((abs(s) for s in samples), default=0)
+    peak_dbfs = 20 * math.log10(peak / 32768) if peak else float("-inf")
+    # Speech peaking much below about -20 dBFS is quiet enough to hurt Whisper.
+    print(f"peak level: {peak_dbfs:.1f} dBFS")
+
+    with wave.open(args.save, "wb") as wav:
+        wav.setnchannels(audio.channels)
+        wav.setsampwidth(audio.sample_width)
+        wav.setframerate(audio.sample_rate)
+        wav.writeframes(audio.data)
+    print(f"saved to {args.save} — play it back with: aplay {args.save}")
 
     for model_name in args.models:
         print(f"\n--- {model_name} ---")

@@ -38,8 +38,9 @@ class WhisperStt:
 
     def transcribe(self, audio: AudioChunk) -> str:
         # vad_filter trims leading/trailing silence off the clip; the button,
-        # not the VAD, is what triggered the recording.
+        # not the VAD, is what triggered the recording. hotwords biases toward
+        # the robot's name, which base.en otherwise hears as "Yeah"/"Fred".
         segments, _ = self._model.transcribe(
-            _to_wav(audio), language="en", beam_size=1, vad_filter=True
+            _to_wav(audio), language="en", beam_size=1, vad_filter=True, hotwords="Alfred"
         )
         return " ".join(segment.text.strip() for segment in segments).strip()

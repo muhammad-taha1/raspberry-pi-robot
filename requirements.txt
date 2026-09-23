@@ -15,6 +15,6 @@ cactus-needle>=3.0,<4.0
 # if the wheel doesn't have a prebuilt ARM64 binary. See AGENTS.md.
 llama-cpp-python>=0.3,<0.4
 # M4 — push-to-talk speech recognition. CTranslate2 backend; aarch64 wheels are
-# published, so no compile step on a 64-bit Pi OS. tiny.en int8 is ~40 MB and
-# transcribes a short command in well under a second on a Pi 5.
+# published, so no compile step on a 64-bit Pi OS. base.en int8 transcribes a
+# 4 s clip in ~2 s on a Pi 5; tiny.en is twice as fast but misheard too much.
 faster-whisper>=1.1,<2.0

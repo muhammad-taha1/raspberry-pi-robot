@@ -137,7 +137,7 @@ motors are exposed this way (M14).
 5. Install the models manually (never committed): the Piper voice at `[voice] model_path`,
    the chat GGUF at `[chat] model_path`, then `.venv/bin/needle download needle3` and
    ```
-   .venv/bin/python -c "from faster_whisper import WhisperModel; WhisperModel('tiny.en', compute_type='int8')"
+   .venv/bin/python -c "from faster_whisper import WhisperModel; WhisperModel('base.en', compute_type='int8')"
    ```
    to pre-fetch the STT weights — same reasoning as Needle: first boot after a deploy
    shouldn't hit the network.

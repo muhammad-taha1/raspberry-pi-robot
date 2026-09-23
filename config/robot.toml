@@ -28,4 +28,4 @@ model_path = "/home/taha/robot/models/LFM2.5-350M-Q4_K_M.gguf"
 [stt]
 # faster-whisper model name, not a path: weights are fetched from Hugging Face
 # and cached on first run, same as Needle. Try base.en if tiny.en mishears.
-model = "tiny.en"
+model = "base.en"
