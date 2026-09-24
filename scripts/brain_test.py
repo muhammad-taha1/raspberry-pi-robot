@@ -14,19 +14,14 @@ import argparse
 import needle
 
 from robotd.models.llm import SYSTEM_FACTS
-from robotd.tools import LED_TRIGGERS
+from robotd.tools import build_registry
 
 
-@needle.tool(triggers=list(LED_TRIGGERS))
-def set_led(on: bool) -> None:
-    """Turn the robot's status LED on or off.
+class PrintingLight:
+    """Stands in for LightActor's ref so the bench runs the real tool schema."""
 
-    Also known as the light, the lamp, or the LED.
-
-    Args:
-        on: True to switch the LED on, False to switch it off.
-    """
-    print(f"[tool] set_led(on={on})")
+    def tell(self, message: object) -> None:
+        print(f"[tool] {message}")
 
 
 def run_turn(agent: "needle.Needle", text: str) -> None:
@@ -46,7 +41,11 @@ def main() -> None:
     parser.add_argument("--turns", nargs="+")
     args = parser.parse_args()
 
-    agent = needle.Needle(tools=[set_led], system=SYSTEM_FACTS)
+    tools = [
+        needle.tool(triggers=list(spec.triggers))(spec.fn) if spec.triggers else needle.tool(spec.fn)
+        for spec in build_registry(light=PrintingLight()).specs()
+    ]
+    agent = needle.Needle(tools=tools, system=SYSTEM_FACTS)
 
     for text in args.turns or [args.text]:
         run_turn(agent, text)

@@ -13,6 +13,7 @@ DEFAULT_CONFIG_PATH = Path("config/robot.toml")
 class RobotConfig:
     pins: dict[str, int]
     voice_model_path: Path
+    voice_length_scale: float
     chat_model_path: Path
     stt_model: str
 
@@ -27,6 +28,7 @@ def load(path: str | Path = DEFAULT_CONFIG_PATH) -> RobotConfig:
     return RobotConfig(
         pins=data["pins"],
         voice_model_path=Path(data["voice"]["model_path"]),
+        voice_length_scale=data["voice"]["length_scale"],
         chat_model_path=Path(data["chat"]["model_path"]),
         stt_model=data["stt"]["model"],
     )

@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 LED_TRIGGERS = (
     r"\b(turn|switch|flick|put)\b.*\b(on|off)\b",
     r"\b(light|lights|lamp|led)\b.*\b(on|off)\b",
+    r"\b(dark|darker)\b",
 )
 
 
@@ -52,7 +53,7 @@ def build_registry(light: pykka.ActorRef) -> ToolRegistry:
     def set_led(turn_on: bool) -> None:
         """Turn the desk light on or off.
 
-        Also known as the lamp or the LED.
+        Also known as the lamp or the LED. If the user says it's dark, turn it on.
 
         Args:
             turn_on: True to switch the LED on, False to switch it off.

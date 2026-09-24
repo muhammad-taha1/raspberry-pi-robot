@@ -25,7 +25,7 @@ class Supervisor:
         # / open_button). The mic and STT model fail startup like the speaker —
         # they're the same USB device the speaker already hard-depends on, so
         # degrading one and not the other would be incoherent.
-        tts = PiperTts(cfg.voice_model_path)
+        tts = PiperTts(cfg.voice_model_path, cfg.voice_length_scale)
         speaker = PyAudioSpeaker()
         self.light = LightActor.start(led=open_led(cfg.pin("led")))
         self.voice = VoiceActor.start(tts=tts, speaker=speaker)

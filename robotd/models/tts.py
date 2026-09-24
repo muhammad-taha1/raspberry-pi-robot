@@ -14,14 +14,15 @@ class TextToSpeech(Protocol):
 
 
 class PiperTts:
-    def __init__(self, model_path: str | Path) -> None:
+    def __init__(self, model_path: str | Path, length_scale: float) -> None:
         # Deferred so laptop tests can import this module without Piper.
-        from piper import PiperVoice
+        from piper import PiperVoice, SynthesisConfig
 
         self._voice = PiperVoice.load(str(model_path))
+        self._config = SynthesisConfig(length_scale=length_scale)
 
     def synthesize(self, text: str) -> Iterable[AudioChunk]:
-        for chunk in self._voice.synthesize(text):
+        for chunk in self._voice.synthesize(text, syn_config=self._config):
             yield AudioChunk(
                 data=chunk.audio_int16_bytes,
                 sample_rate=chunk.sample_rate,

@@ -1,8 +1,31 @@
+import re
+
+import pytest
+
 from robotd.actors.light import LightActor
 from robotd.models.llm import ToolCall
-from robotd.tools import build_registry
+from robotd.tools import LED_TRIGGERS, build_registry
 
 from doubles import RecordingLed, wait_until
+
+
+def led_triggered(text: str) -> bool:
+    return any(re.search(p, text, re.IGNORECASE) for p in LED_TRIGGERS)
+
+
+# Transcripts heard live on the Pi. The triggers are set_led's only permission
+# to fire (see hold_untriggered), so a miss here means the light can't switch.
+@pytest.mark.parametrize(
+    "text",
+    ["It's dark here.", "turn on the light", "Yeah, for turn off the light.", "lights on"],
+)
+def test_led_triggers_match_light_requests(text):
+    assert led_triggered(text)
+
+
+@pytest.mark.parametrize("text", ["Hey Alfred, how are you?", "Tell me a joke."])
+def test_led_triggers_ignore_small_talk(text):
+    assert not led_triggered(text)
 
 
 def start():

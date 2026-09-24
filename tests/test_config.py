@@ -14,6 +14,7 @@ def test_loads_pins(tmp_path):
 
             [voice]
             model_path = "/opt/robot/voices/alan.onnx"
+            length_scale = 0.9
 
             [chat]
             model_path = "/opt/robot/models/chat.gguf"
@@ -29,6 +30,7 @@ def test_loads_pins(tmp_path):
     assert cfg.pin("led") == 24
     assert cfg.pin("motor_in1") == 17
     assert cfg.voice_model_path.name == "alan.onnx"
+    assert cfg.voice_length_scale == 0.9
     assert cfg.chat_model_path.name == "chat.gguf"
     assert cfg.stt_model == "tiny.en"
 

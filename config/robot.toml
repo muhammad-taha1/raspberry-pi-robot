@@ -17,6 +17,9 @@ motor_in4 = 23
 # Installed manually on the Pi. Keep this model and its matching .onnx.json
 # sidecar out of Git (see .gitignore).
 model_path = "/home/taha/robot/voices/en_GB-alan-medium.onnx"
+# Piper's speaking pace: seconds of speech per unit, so lower is faster. 1.0 is
+# the voice's natural pace. Audition values with scripts/voice_test.py.
+length_scale = 0.9
 
 [chat]
 # Small local GGUF for prose (jokes/greetings/small talk) after Needle's tool
