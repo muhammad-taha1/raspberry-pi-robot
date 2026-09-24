@@ -17,8 +17,10 @@ from piper import PiperVoice, SynthesisConfig
 from robotd.config import load
 
 
-def speak(voice: PiperVoice, audio: pyaudio.PyAudio, text: str, length_scale: float) -> None:
+def speak(voice: PiperVoice, audio: pyaudio.PyAudio, text: str, length_scale: float) -> float:
+    """Returns the synthesized audio's length in seconds."""
     stream = None
+    seconds = 0.0
     try:
         config = SynthesisConfig(length_scale=length_scale)
         for chunk in voice.synthesize(text, syn_config=config):
@@ -30,10 +32,12 @@ def speak(voice: PiperVoice, audio: pyaudio.PyAudio, text: str, length_scale: fl
                     output=True,
                 )
             stream.write(chunk.audio_int16_bytes)
+            seconds += len(chunk.audio_int16_bytes) / chunk.sample_width / chunk.sample_rate
     finally:
         if stream is not None:
             stream.stop_stream()
             stream.close()
+    return seconds
 
 
 def main() -> None:
@@ -51,8 +55,9 @@ def main() -> None:
     audio = pyaudio.PyAudio()
     try:
         for length_scale in args.length_scale:
-            print(f"length_scale {length_scale}")
-            speak(voice, audio, args.text, length_scale)
+            print(f"length_scale {length_scale} ...", end=" ", flush=True)
+            seconds = speak(voice, audio, args.text, length_scale)
+            print(f"{seconds:.2f}s of audio")
     finally:
         audio.terminate()
 
