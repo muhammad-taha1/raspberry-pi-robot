@@ -27,7 +27,7 @@ from collections import deque
 
 from llama_cpp import Llama
 
-from robotd.models.chat import HISTORY_TURNS, NO_ACTION, PERSONA
+from robotd.models.chat import FEW_SHOT, HISTORY_TURNS, NO_ACTION, PERSONA
 
 PROMPT_GROUPS = {
     "greetings": ["hi", "hello", "good morning", "bye"],
@@ -81,6 +81,7 @@ def main() -> None:
             reply, elapsed, tokens = ask(
                 [
                     {"role": "system", "content": PERSONA},
+                    *FEW_SHOT,
                     {"role": "system", "content": NO_ACTION},
                     {"role": "user", "content": prompt},
                 ]
@@ -96,7 +97,7 @@ def main() -> None:
     print("\n--- multi-turn sequence (shared history window) ---")
     history: deque[tuple[str, str]] = deque(maxlen=HISTORY_TURNS)
     for prompt in MULTI_TURN_PROMPTS:
-        messages = [{"role": "system", "content": PERSONA}]
+        messages = [{"role": "system", "content": PERSONA}, *FEW_SHOT]
         for user, assistant in history:
             messages.append({"role": "user", "content": user})
             messages.append({"role": "assistant", "content": assistant})
