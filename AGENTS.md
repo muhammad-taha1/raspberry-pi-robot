@@ -139,7 +139,7 @@ motors are exposed this way (M14).
 5. Install the models manually (never committed): the Piper voice at `[voice] model_path`,
    the chat GGUF at `[chat] model_path`, then `.venv/bin/needle download needle3` and
    ```
-   .venv/bin/python -c "from faster_whisper import WhisperModel; WhisperModel('base.en', compute_type='int8')"
+   .venv/bin/python -c "from faster_whisper import WhisperModel; WhisperModel('tiny.en', compute_type='int8')"
    ```
    to pre-fetch the STT weights — same reasoning as Needle: first boot after a deploy
    shouldn't hit the network.
@@ -227,7 +227,9 @@ button and speak a couple more — all three models must keep answering.
 ./deploy/deploy.sh
 ```
 
-`git pull`, install any new dependencies, restart `robotd`, tail the log. Also (re)writes
-`/etc/asound.conf` if it's missing. There's no automated device check — verify a wiring
+`git pull`, install any new dependencies, pre-fetch the Needle and `[stt] model` weights,
+warn about a missing voice/chat model file, reinstall `robotd.service` if it changed,
+restart `robotd`, tail the log. Also (re)writes `/etc/asound.conf` if it's missing. The
+service runs with `HF_HUB_OFFLINE=1`, so it only ever loads weights deploy already cached. There's no automated device check — verify a wiring
 change by watching `python -m robotd` start cleanly and exercising the device over
 `POST /chat`.

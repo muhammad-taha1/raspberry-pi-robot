@@ -60,6 +60,13 @@ class LlamaCppChat:
 
         self._llm = Llama(model_path=str(model_path), n_ctx=1024, n_threads=4, verbose=False)
         self._history: deque[tuple[str, str]] = deque(maxlen=HISTORY_TURNS)
+        # llama.cpp reuses the KV cache for a prompt prefix it has already seen,
+        # and PERSONA + FEW_SHOT never change — so pay that prefill (and thread
+        # warm-up) at startup instead of on the first spoken reply.
+        self._llm.create_chat_completion(
+            messages=[{"role": "system", "content": PERSONA}, *FEW_SHOT, {"role": "user", "content": "hello"}],
+            max_tokens=1,
+        )
 
     def reply(self, text: str) -> str:
         messages = [{"role": "system", "content": PERSONA}, *FEW_SHOT]

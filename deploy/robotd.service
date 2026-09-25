@@ -10,6 +10,8 @@ ExecStart=/home/taha/robot/.venv/bin/python -m robotd
 Restart=on-failure
 RestartSec=2
 User=taha
+# Load Needle/Whisper weights from the local cache only; deploy.sh pre-fetches.
+Environment=HF_HUB_OFFLINE=1
 
 [Install]
 WantedBy=multi-user.target

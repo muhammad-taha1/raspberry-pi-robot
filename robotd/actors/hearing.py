@@ -50,6 +50,11 @@ class HearingActor(pykka.ThreadingActor):
         if not isinstance(message, StartListening):
             return
 
+        # A press queued while the previous recording blocked (or a contact
+        # bounce) arrives after release and would record only the release tail.
+        if not self._button.is_pressed():
+            return
+
         try:
             audio = self._mic.record(self._button.is_pressed)
             if _seconds(audio) < MIN_SECONDS:

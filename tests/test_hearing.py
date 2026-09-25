@@ -67,7 +67,21 @@ def test_record_polls_is_pressed_until_release():
     finally:
         stop(hearing, brain)
 
-    assert mic.polls == 5
+    # One of the five held polls is the still-held check before recording.
+    assert mic.polls == 4
+
+
+def test_press_handled_after_release_is_dropped():
+    hearing, brain, mic, stt, button = start(button=FakeButton(pressed_for=0))
+    try:
+        button.press()
+        hearing.ask(object())  # mailbox is FIFO: the press has been handled once this returns
+    finally:
+        stop(hearing, brain)
+
+    assert mic.polls == 0
+    assert stt.audios == []
+    assert brain.received == []
 
 
 def test_short_recording_is_dropped_before_stt_runs():
