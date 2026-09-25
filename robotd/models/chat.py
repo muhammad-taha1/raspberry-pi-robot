@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections import deque
 from pathlib import Path
 from typing import Protocol
@@ -56,6 +57,7 @@ class LlamaCppChat:
         messages.append({"role": "system", "content": NO_ACTION})
         messages.append({"role": "user", "content": text})
 
+        start = time.monotonic()
         result = self._llm.create_chat_completion(
             messages=messages,
             max_tokens=80,
@@ -63,6 +65,7 @@ class LlamaCppChat:
             top_k=50,
             repeat_penalty=1.05,
         )
+        logger.info("chat_ms=%.0f", (time.monotonic() - start) * 1000)
         spoken = result["choices"][0]["message"]["content"].strip()
         self._history.append((text, spoken))
         return spoken

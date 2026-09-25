@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 from dataclasses import dataclass, field
 from typing import Protocol
+
+logger = logging.getLogger(__name__)
 
 # Needle's system= only recognises a fixed set of keys (date, locale, device,
 # battery, network, location, user, assistant) and free-associates if given
@@ -109,7 +112,9 @@ class NeedleLlm:
         self._turns += 1
         self._last = now
 
+        inference_start = time.monotonic()
         result = self._agent.complete(text)
+        logger.info("needle_ms=%.0f", (time.monotonic() - inference_start) * 1000)
         calls = [
             ToolCall(call["name"], call["arguments"])
             for call in result["function_calls"]

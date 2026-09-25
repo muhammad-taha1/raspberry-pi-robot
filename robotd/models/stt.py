@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import io
+import logging
+import time
 import wave
 from typing import Protocol
 
 from robotd.hal.audio import AudioChunk
+
+logger = logging.getLogger(__name__)
 
 
 class SpeechToText(Protocol):
@@ -40,7 +44,12 @@ class WhisperStt:
         # vad_filter trims leading/trailing silence off the clip; the button,
         # not the VAD, is what triggered the recording. hotwords biases toward
         # the robot's name, which base.en otherwise hears as "Yeah"/"Fred".
+        start = time.monotonic()
         segments, _ = self._model.transcribe(
             _to_wav(audio), language="en", beam_size=1, vad_filter=True, hotwords="Alfred"
         )
-        return " ".join(segment.text.strip() for segment in segments).strip()
+        # transcribe() is lazy — the actual inference happens while this
+        # generator is consumed, not on the call above.
+        text = " ".join(segment.text.strip() for segment in segments).strip()
+        logger.info("stt_ms=%.0f text=%r", (time.monotonic() - start) * 1000, text)
+        return text

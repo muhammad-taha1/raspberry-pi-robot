@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 import pykka
 
@@ -22,7 +23,22 @@ class VoiceActor(pykka.ThreadingActor):
     def on_receive(self, message: object) -> None:
         if isinstance(message, Speak):
             try:
-                self._speaker.play(self._tts.synthesize(message.text))
+                start = time.monotonic()
+
+                def timed_chunks():
+                    for i, chunk in enumerate(self._tts.synthesize(message.text)):
+                        if i == 0:
+                            logger.info(
+                                "tts_first_chunk_ms=%.0f", (time.monotonic() - start) * 1000
+                            )
+                        yield chunk
+
+                self._speaker.play(timed_chunks())
+                logger.info(
+                    "speak_total_ms=%.0f text=%r",
+                    (time.monotonic() - start) * 1000,
+                    message.text,
+                )
             except Exception:
                 # A bad frame or a device hiccup must not take the actor down —
                 # there's no supervisor to restart it, so this would be permanent.
