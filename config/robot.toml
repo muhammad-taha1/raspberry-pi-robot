@@ -26,9 +26,15 @@ length_scale = 0.75
 # calls come back empty. Installed manually on the Pi, kept out of Git (see
 # .gitignore). Missing file degrades to NullChat with a logged warning
 # rather than crashing the daemon — see robotd/models/chat.py.
-model_path = "/home/taha/robot/models/LFM2.5-350M-Q4_K_M.gguf"
+# scripts/chat_test.py showed Qwen2.5-0.5B correctly grounding the assistant's
+# name (LFM2.5 invented "Sir Alistair Blackwood") and staying consistent
+# across turns (LFM2.5 told a joke cold, then refused the same request after
+# a few turns of history) — trades ~240MB more peak RSS for that.
+model_path = "/home/taha/robot/models/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
 
 [stt]
 # faster-whisper model name, not a path: weights are fetched from Hugging Face
-# and cached on first run, same as Needle. Try base.en if tiny.en mishears.
-model = "base.en"
+# and cached on first run, same as Needle. scripts/stt_test.py showed tiny.en
+# ~45% faster and half the RSS of base.en, and it caught "Hey Alfred" where
+# base.en dropped it — re-check with stt_test.py if it starts mishearing.
+model = "tiny.en"

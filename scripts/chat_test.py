@@ -1,6 +1,18 @@
 """Bring-up bench for the chat GGUF — reply text, tok/s, latency, peak RSS.
 
     python scripts/chat_test.py --model ~/robot/models/LFM2.5-350M-Q4_K_M.gguf
+    python scripts/chat_test.py --model ~/robot/models/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf
+
+Prompts are grouped so two models' output can be diffed by eye:
+- greetings: short small talk, checks tone/brevity.
+- harder: joke / meaning of life / poem — asks that push past small talk and
+  tend to expose a small model's incoherence.
+- tool_style: device commands like "turn on the light". In production these
+  never reach the chat model (Needle dispatches them first), but
+  LlamaCppChat.reply() must still behave if Needle ever misses one —
+  NO_ACTION tells the model to say plainly it can't act. A model that instead
+  claims "Done!" or "The light is on now" is failing that instruction and
+  would mislead the person as if the robot had actually moved.
 
 MULTI_TURN_PROMPTS ends in "tell me a joke" to check whether unrelated earlier
 turns flatten a later reply — that's what set HISTORY_TURNS to 2.
@@ -17,12 +29,20 @@ from llama_cpp import Llama
 
 from robotd.models.chat import HISTORY_TURNS, NO_ACTION, PERSONA
 
-PROMPTS = [
-    "tell me a joke",
-    "how are you?",
-    "what's your name?",
-    "tell me about yourself",
-]
+PROMPT_GROUPS = {
+    "greetings": ["hi", "hello", "good morning", "bye"],
+    "harder": [
+        "tell me a joke",
+        "what's the meaning of life?",
+        "write me a short poem",
+        "tell me about yourself",
+    ],
+    "tool_style": [
+        "turn on the light",
+        "turn off the light",
+        "can you move forward?",
+    ],
+}
 
 MULTI_TURN_PROMPTS = [
     "its dark",
@@ -55,21 +75,23 @@ def main() -> None:
         reply = result["choices"][0]["message"]["content"].strip()
         return reply, elapsed, result.get("usage", {}).get("completion_tokens", 0)
 
-    print("--- cold prompts (no history) ---")
-    for prompt in PROMPTS:
-        reply, elapsed, tokens = ask(
-            [
-                {"role": "system", "content": PERSONA},
-                {"role": "system", "content": NO_ACTION},
-                {"role": "user", "content": prompt},
-            ]
-        )
-        peak_rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+    for group, prompts in PROMPT_GROUPS.items():
+        print(f"\n--- {group} (no history) ---")
+        for prompt in prompts:
+            reply, elapsed, tokens = ask(
+                [
+                    {"role": "system", "content": PERSONA},
+                    {"role": "system", "content": NO_ACTION},
+                    {"role": "user", "content": prompt},
+                ]
+            )
+            peak_rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
 
-        print(f"\nprompt: {prompt!r}")
-        print(f"reply: {reply!r}")
-        print(f"tokens: {tokens}  latency: {elapsed:.2f}s  tps: {tokens / elapsed:.1f}")
-        print(f"peak_rss_mb: {peak_rss_mb:.1f}")
+            print(f"\nprompt: {prompt!r}")
+            print(f"reply: {reply!r}")
+            tps = tokens / elapsed if elapsed else 0.0
+            print(f"tokens: {tokens}  latency: {elapsed:.2f}s  tps: {tps:.1f}")
+            print(f"peak_rss_mb: {peak_rss_mb:.1f}")
 
     print("\n--- multi-turn sequence (shared history window) ---")
     history: deque[tuple[str, str]] = deque(maxlen=HISTORY_TURNS)
