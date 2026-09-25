@@ -8,11 +8,11 @@ Prompts are grouped so two models' output can be diffed by eye:
 - harder: joke / meaning of life / poem — asks that push past small talk and
   tend to expose a small model's incoherence.
 - tool_style: device commands like "turn on the light". In production these
-  never reach the chat model (Needle dispatches them first), but
-  LlamaCppChat.reply() must still behave if Needle ever misses one —
-  NO_ACTION tells the model to say plainly it can't act. A model that instead
-  claims "Done!" or "The light is on now" is failing that instruction and
-  would mislead the person as if the robot had actually moved.
+  never reach the chat model (Needle dispatches them first), but if Needle
+  misses one the chat model should decline rather than claim "The light is
+  on" — nothing actually moves either way, it's a truthfulness check.
+
+Sampling is no longer near-greedy, so run it twice before judging.
 
 MULTI_TURN_PROMPTS ends in "tell me a joke" to check whether unrelated earlier
 turns flatten a later reply — that's what set HISTORY_TURNS to 2.
@@ -27,7 +27,7 @@ from collections import deque
 
 from llama_cpp import Llama
 
-from robotd.models.chat import FEW_SHOT, HISTORY_TURNS, NO_ACTION, PERSONA
+from robotd.models.chat import FEW_SHOT, HISTORY_TURNS, PERSONA, SAMPLING
 
 PROMPT_GROUPS = {
     "greetings": ["hi", "hello", "good morning", "bye"],
@@ -64,13 +64,7 @@ def main() -> None:
 
     def ask(messages: list[dict]) -> tuple[str, float, int]:
         start = time.monotonic()
-        result = llm.create_chat_completion(
-            messages=messages,
-            max_tokens=80,
-            temperature=0.1,
-            top_k=50,
-            repeat_penalty=1.05,
-        )
+        result = llm.create_chat_completion(messages=messages, **SAMPLING)
         elapsed = time.monotonic() - start
         reply = result["choices"][0]["message"]["content"].strip()
         return reply, elapsed, result.get("usage", {}).get("completion_tokens", 0)
@@ -82,7 +76,6 @@ def main() -> None:
                 [
                     {"role": "system", "content": PERSONA},
                     *FEW_SHOT,
-                    {"role": "system", "content": NO_ACTION},
                     {"role": "user", "content": prompt},
                 ]
             )
@@ -101,7 +94,6 @@ def main() -> None:
         for user, assistant in history:
             messages.append({"role": "user", "content": user})
             messages.append({"role": "assistant", "content": assistant})
-        messages.append({"role": "system", "content": NO_ACTION})
         messages.append({"role": "user", "content": prompt})
 
         reply, elapsed, tokens = ask(messages)
