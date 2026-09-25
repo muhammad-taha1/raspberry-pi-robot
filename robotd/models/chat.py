@@ -71,7 +71,13 @@ class LlamaCppChat:
         start = time.monotonic()
         result = self._llm.create_chat_completion(messages=messages, **SAMPLING)
         logger.info("chat_ms=%.0f", (time.monotonic() - start) * 1000)
-        spoken = result["choices"][0]["message"]["content"].strip()
+        choice = result["choices"][0]
+        spoken = choice["message"]["content"].strip()
+        if choice.get("finish_reason") == "length":
+            # Hit max_tokens mid-sentence; speaking half a sentence sounds broken.
+            end = max(spoken.rfind(mark) for mark in ".!?")
+            if end > 0:
+                spoken = spoken[: end + 1]
         self._history.append((text, spoken))
         return spoken
 
